@@ -1,0 +1,1679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Research Pipeline</title>
+<!-- Home-screen app on the iPhone (these files sit next to the page on its web address; the Mac app ignores them). -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Projects">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap">
+<style>
+/* Layout: a pipeline strip (paper stages, idea → published) over a scan-friendly project list; a side drawer holds each project's editable record. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --sunken: #eaeef2;
+  --ink: #16202b;
+  --muted: #5a6676;
+  --line: #d9dfe6;
+  --accent: #1d4fc4;
+  --accent-ink: #ffffff;
+  --warn: #a8620a;
+  --danger: #b4332b;
+  --ok: #26804a;
+  --s-none: #b9c1cc;
+  --s-idea: #a3adbb;
+  --s-data: #8394b4;
+  --s-analysis: #6382c8;
+  --s-drafting: #466fd4;
+  --s-wp: #2b7cbd;
+  --s-submitted: #1c8ca2;
+  --s-rr: #c27610;
+  --s-accepted: #2f9a5b;
+  --s-published: #217842;
+  --font-display: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --font-body: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1319; --surface: #151c24; --sunken: #1b232d; --ink: #e5eaf0; --muted: #94a1b2; --line: #273240;
+    --accent: #7ea3ff; --accent-ink: #0b1220; --warn: #e3a24a; --danger: #f07a70; --ok: #5cc68a;
+    --s-none: #4a5564; --s-idea: #6c7889; --s-data: #7b8db0; --s-analysis: #7896dc; --s-drafting: #6f93f0;
+    --s-wp: #4fa0dc; --s-submitted: #3fb3c4; --s-rr: #e3a24a; --s-accepted: #5cc68a; --s-published: #3fae6c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1319; --surface: #151c24; --sunken: #1b232d; --ink: #e5eaf0; --muted: #94a1b2; --line: #273240;
+  --accent: #7ea3ff; --accent-ink: #0b1220; --warn: #e3a24a; --danger: #f07a70; --ok: #5cc68a;
+  --s-none: #4a5564; --s-idea: #6c7889; --s-data: #7b8db0; --s-analysis: #7896dc; --s-drafting: #6f93f0;
+  --s-wp: #4fa0dc; --s-submitted: #3fb3c4; --s-rr: #e3a24a; --s-accepted: #5cc68a; --s-published: #3fae6c;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(28px, 4vw, 38px); line-height: 1.1; margin: 0; text-wrap: balance; }
+.meta { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+.meta b { color: var(--ink); font-weight: 600; }
+
+/* Pipeline strip */
+.funnel-scroll { overflow-x: auto; }
+.funnel { display: grid; grid-template-columns: repeat(var(--n), minmax(88px, 1fr)); gap: 4px; min-width: calc(var(--n) * 92px); }
+.stage-cell { appearance: none; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 10px 10px 9px; text-align: left; cursor: pointer; display: grid; gap: 4px; position: relative; overflow: hidden; }
+.stage-cell::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--c); }
+.stage-cell .n { font-family: var(--font-mono); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1; }
+.stage-cell .l { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.stage-cell.zero .n { color: var(--muted); opacity: .5; }
+.stage-cell[aria-pressed="true"] { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
+.stage-cell:hover { border-color: var(--c); }
+
+/* Toolbar */
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.search { flex: 1 1 220px; min-width: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 11px; font-size: 13px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.chip .c { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip[aria-pressed="true"] .c { color: inherit; opacity: .75; }
+select.sort { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 7px 13px; cursor: pointer; font-weight: 500; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--danger); }
+.btn.danger.armed { background: var(--danger); color: var(--surface); border-color: var(--danger); }
+.btn.small { padding: 4px 9px; font-size: 13px; }
+
+/* List */
+.list { display: grid; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.list-head, .row { display: grid; grid-template-columns: 7.2rem minmax(0, 1fr) 12rem 8.5rem 6.5rem 3.6rem; gap: 16px; align-items: center; padding: 12px 16px; }
+.list-head { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--sunken); padding-block: 8px; }
+.row { border-top: 1px solid var(--line); cursor: pointer; text-align: left; width: 100%; background: none; border-left: 0; border-right: 0; border-bottom: 0; }
+.row:hover { background: var(--sunken); }
+.row.paused { opacity: .55; }
+.acr { font-family: var(--font-mono); font-weight: 600; font-size: 14px; letter-spacing: .02em; display: grid; gap: 4px; justify-items: start; }
+.prio { font-family: var(--font-body); font-size: 11px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; }
+.prio.high { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.prio.low { color: var(--muted); background: var(--sunken); }
+.tcell { min-width: 0; display: grid; gap: 3px; }
+.ptitle { font-family: var(--font-display); font-weight: 500; font-size: 16px; line-height: 1.3; }
+.ptitle.missing { color: var(--muted); font-style: italic; font-weight: 400; }
+.sub { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.next { font-size: 13px; overflow-wrap: anywhere; }
+.next b { font-weight: 600; color: var(--muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; margin-right: 4px; }
+.flags { display: flex; flex-wrap: wrap; gap: 6px; }
+.flag { font-size: 11.5px; padding: 1px 7px; border-radius: 4px; border: 1px solid currentColor; }
+.flag.check { color: var(--warn); }
+.flag.due { color: var(--muted); }
+.flag.due.soon { color: var(--warn); }
+.flag.due.over { color: var(--danger); }
+.scell { display: grid; gap: 6px; }
+.stage-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; }
+.stage-chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
+.bar { height: 6px; border-radius: 3px; background: var(--sunken); overflow: hidden; display: flex; }
+.bar span { background: var(--c); border-radius: 3px; }
+.pct { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.srow { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.ball { font-size: 13px; }
+.ball.me { font-weight: 600; color: var(--accent); }
+.upd { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.upd.stale { color: var(--warn); }
+.empty { padding: 40px 20px; text-align: center; color: var(--muted); display: grid; gap: 10px; justify-items: center; }
+.empty strong { color: var(--ink); font-family: var(--font-display); font-size: 18px; font-weight: 500; }
+.empty .dbx-alt { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); max-width: 420px; }
+.empty .dbx-paste { width: min(320px, 100%); }
+.empty .dbx-paste input { font-size: 16px; }   /* 16px keeps iOS from zooming in on focus */
+.empty .dbx-code { font-family: var(--font-mono); font-size: 14px; color: var(--ink); background: var(--sunken); padding: 8px 12px; border-radius: 6px; word-break: break-all; user-select: all; max-width: 100%; }
+
+@media (max-width: 820px) {
+  .list-head { display: none; }
+  .row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "acr upd" "t t" "s s" "b fl"; gap: 8px; }
+  .row .meters { grid-area: fl; justify-self: end; }
+  .row .acr { grid-area: acr; display: flex; align-items: center; gap: 8px; }
+  .row .tcell { grid-area: t; }
+  .row .scell { grid-area: s; }
+  .row .ball { grid-area: b; }
+  .row .upd { grid-area: upd; }
+}
+
+/* Drawer */
+.scrim { position: fixed; inset: 0; background: color-mix(in srgb, var(--ink) 30%, transparent); z-index: 20; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(500px, 100%); background: var(--surface); border-left: 1px solid var(--line); z-index: 21; overflow-y: auto; padding-top: max(20px, env(safe-area-inset-top, 0px)); padding-bottom: max(32px, env(safe-area-inset-bottom, 0px)); padding-left: 22px; padding-right: max(22px, env(safe-area-inset-right, 0px)); display: grid; align-content: start; gap: 18px; box-shadow: -12px 0 32px -16px rgba(0,0,0,.25); }
+.dhead { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.dacr { font-family: var(--font-mono); font-weight: 600; font-size: 22px; letter-spacing: .02em; }
+.close { border: 0; background: none; font-size: 26px; line-height: 1; cursor: pointer; color: var(--muted); padding: 2px 6px; }
+.field { display: grid; gap: 5px; }
+.field > label, .lbl { font-size: 11.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.field input[type="text"], .field input[type="url"], .field input[type="date"], .field select, .field textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.field textarea { resize: vertical; min-height: 64px; }
+.field textarea.title-in { font-family: var(--font-display); font-size: 17px; min-height: 52px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 440px) { .grid2 { grid-template-columns: 1fr; } }
+.stagepick { display: flex; flex-wrap: wrap; gap: 5px; }
+.stagepick button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 4px 10px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.stagepick button i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.stagepick button[aria-pressed="true"] { border-color: var(--c); background: color-mix(in srgb, var(--c) 16%, var(--surface)); font-weight: 600; }
+.prog { display: grid; grid-template-columns: 1fr 3.4rem; gap: 10px; align-items: center; }
+.prog input[type="range"] { width: 100%; accent-color: var(--accent); }
+.prog output { font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.inline { display: flex; gap: 8px; align-items: center; }
+.inline input { flex: 1; min-width: 0; }
+.checkbox { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; cursor: pointer; }
+.banner { border: 1px solid var(--warn); color: var(--ink); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); border-radius: 6px; padding: 10px 12px; font-size: 13.5px; display: grid; gap: 8px; }
+.banner b { color: var(--warn); }
+.links, .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.links li { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 14px; min-width: 0; }
+.links a { overflow-wrap: anywhere; }
+.x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; }
+.addlink { display: grid; grid-template-columns: 7rem minmax(0,1fr) auto; gap: 6px; }
+.addlink input { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); min-width: 0; }
+.log li { display: grid; grid-template-columns: 5.6rem minmax(0,1fr); gap: 10px; font-size: 13.5px; border-top: 1px solid var(--line); padding-top: 6px; }
+.log time { font-family: var(--font-mono); font-size: 12px; color: var(--muted); padding-top: 1px; }
+.dfoot { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; color: var(--muted); font-size: 12.5px; }
+.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 6px; font-size: 13.5px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 30; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+.flag.tag { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+/* Journal line for published and forthcoming papers */
+.publine { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 9px; font-size: 14px; }
+.publine .jn { font-family: var(--font-display); font-style: italic; font-weight: 500; }
+.publine .yr { font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 4px; color: var(--s-published); background: color-mix(in srgb, var(--s-published) 14%, transparent); }
+.publine .yr.fc { color: var(--s-accepted); background: color-mix(in srgb, var(--s-accepted) 14%, transparent); }
+.publine .bib { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.publine a { font-size: 12.5px; text-decoration: none; white-space: nowrap; }
+.publine a:hover { text-decoration: underline; }
+.group-head { border: 0; border-top: 1px solid var(--line); background: var(--sunken); padding: 9px 16px 7px; font-family: var(--font-display); font-weight: 600; font-size: 15px; display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left; cursor: pointer; color: var(--ink); }
+.group-head i { font-style: normal; font-size: 11px; color: var(--muted); width: 10px; }
+.group-head span { font-family: var(--font-mono); font-size: 12px; font-weight: 400; color: var(--muted); }
+.list-head + .group-head { border-top: 0; }
+.filebar { display: flex; align-items: baseline; gap: 8px; }
+.filebar .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transform: translateY(-1px); }
+.filebar .dot.ok { background: var(--ok); }
+.filebar .dot.busy { background: var(--warn); }
+.filebar .dot.off { background: var(--danger); }
+label.btn { display: inline-block; }
+
+.stack { display: grid; gap: 22px; min-width: 0; }
+
+/* Urgency / importance / interest meters, 0–5: an icon (click to clear) and five rising bars (click to set) */
+.meters { display: grid; gap: 2px; justify-content: start; }
+.meter { --fc: var(--muted); display: flex; align-items: flex-end; height: 16px; }
+.meter .mi { width: 19px; height: 100%; border: 0; background: none; padding: 0 3px 0 0; color: var(--muted); opacity: .35; cursor: pointer; display: grid; place-items: center; }
+.meter .mi svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.meter .mi:hover { opacity: .8; }
+.meter.on .mi { opacity: 1; color: var(--fc); }
+.meter.on .mi svg { fill: color-mix(in srgb, var(--fc) 35%, transparent); }
+.meter .b { width: 7px; height: 100%; border: 0; background: none; padding: 0 1.5px; cursor: pointer; display: flex; align-items: flex-end; }
+.meter .b span { display: block; width: 100%; height: calc(30% + var(--k) * 14%); border-radius: 1.5px; background: var(--line); }
+.meter .b.f span { background: var(--fc); }
+.meter:has(.b:hover) .b span { background: color-mix(in srgb, var(--fc) 60%, var(--line)); }
+.meter .b:hover ~ .b span { background: var(--line) !important; }
+.meter-urgent { --fc: var(--danger); }
+.meter-important { --fc: var(--warn); }
+.meter-interesting { --fc: var(--p3); }
+.meter.big { height: 26px; }
+.meter.big .mi { width: 30px; }
+.meter.big .mi svg { width: 18px; height: 18px; }
+.meter.big .b { width: 16px; padding: 0 2.5px; }
+.meter.big .b span { border-radius: 2.5px; }
+.mrows { display: grid; gap: 8px; }
+.mrow { display: grid; grid-template-columns: 6.5rem auto 1fr; align-items: center; gap: 10px; font-size: 14px; }
+.mrow output { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+
+/* Tabs */
+.hright { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.tabs { display: inline-flex; background: var(--sunken); border: 1px solid var(--line); border-radius: 8px; padding: 3px; gap: 2px; }
+.tabs button { border: 0; background: none; border-radius: 6px; padding: 6px 16px; cursor: pointer; font-weight: 500; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+/* Diary: project colours, one per project in alphabetical order */
+:root { --p0: #2f6fdb; --p1: #c2541c; --p2: #0f8a6a; --p3: #9140c4; --p4: #a87a06; --p5: #cc3366; --p6: #1f8bb0; --p7: #5d7d1c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --p0: #7ea6ff; --p1: #f08a4b; --p2: #3fc79e; --p3: #c48af0; --p4: #e0b84a; --p5: #f27aa0; --p6: #5cc0e6; --p7: #a4c45a; } }
+:root[data-theme="dark"] { --p0: #7ea6ff; --p1: #f08a4b; --p2: #3fc79e; --p3: #c48af0; --p4: #e0b84a; --p5: #f27aa0; --p6: #5cc0e6; --p7: #a4c45a; }
+.ptag, .ttag { font-family: var(--font-mono); font-size: .86em; font-weight: 600; padding: 0 5px; border-radius: 4px; white-space: nowrap; }
+.ptag { color: var(--pc); background: color-mix(in srgb, var(--pc) 13%, transparent); }
+.ttag { color: var(--muted); background: var(--sunken); }
+button.ptag, button.ttag { border: 0; cursor: pointer; font-size: 12.5px; padding: 3px 8px; }
+
+.dgrid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .dgrid { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.ed-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ed-head .when { flex: 1; min-width: 10rem; }
+.ed-date { font-family: var(--font-display); font-size: 24px; font-weight: 600; line-height: 1.15; }
+.navb { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; width: 34px; height: 34px; cursor: pointer; font-size: 18px; line-height: 1; color: var(--muted); }
+.navb:disabled { opacity: .35; cursor: default; }
+.ed-head input[type="date"] { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+#edText { width: 100%; min-height: 230px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); padding: 12px 14px; font-size: 16px; line-height: 1.7; }
+#edNote { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.linked { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); min-height: 22px; }
+.quick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.quick .lbl { margin-right: 4px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stat { display: grid; gap: 2px; }
+.stat .n { font-family: var(--font-mono); font-size: 28px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat .l { font-size: 12px; color: var(--muted); }
+.stat.hot .n { color: var(--warn); }
+.cheer { font-size: 13.5px; color: var(--muted); margin: 0; }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 13px); grid-auto-columns: 13px; gap: 3px; overflow-x: auto; padding-bottom: 2px; }
+.heat button { border: 0; padding: 0; border-radius: 3px; cursor: pointer; background: var(--sunken); }
+.heat button[data-l="1"] { background: color-mix(in srgb, var(--accent) 30%, var(--sunken)); }
+.heat button[data-l="2"] { background: color-mix(in srgb, var(--accent) 55%, var(--sunken)); }
+.heat button[data-l="3"] { background: color-mix(in srgb, var(--accent) 78%, var(--sunken)); }
+.heat button[data-l="4"] { background: var(--accent); }
+.heat button.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
+.heat button.future { visibility: hidden; }
+.seg { display: inline-flex; gap: 2px; background: var(--sunken); border-radius: 6px; padding: 2px; }
+.seg button { border: 0; background: none; padding: 3px 9px; border-radius: 5px; cursor: pointer; font-size: 12.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); }
+.shead { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tbars { display: grid; gap: 5px; }
+.tbar { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) 2.2rem; gap: 8px; align-items: center; border: 0; background: none; padding: 0; cursor: pointer; text-align: left; }
+.tbar .nm { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--pc, var(--muted)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbar .tr { height: 10px; background: var(--sunken); border-radius: 5px; overflow: hidden; }
+.tbar .tr span { display: block; height: 100%; background: var(--pc, var(--s-none)); border-radius: 5px; }
+.tbar .ct { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.tbar:hover .nm { text-decoration: underline; }
+.filterpill { display: inline-flex; gap: 8px; align-items: center; font-size: 13.5px; }
+.week { display: grid; gap: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.week-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; padding: 10px 16px 9px; background: var(--sunken); }
+.week-head h3 { margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.week-head .wsub { font-size: 12.5px; color: var(--muted); }
+.week-head .wsum { display: flex; flex-wrap: wrap; gap: 5px; margin-left: auto; }
+.day { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 14px; padding: 10px 16px; border-top: 1px solid var(--line); cursor: pointer; text-align: left; width: 100%; background: none; border-left: 0; border-right: 0; border-bottom: 0; }
+.week-head + .day { border-top: 0; }
+.day:hover { background: var(--sunken); }
+.day.sel { box-shadow: inset 3px 0 0 var(--accent); }
+.day .dd { display: grid; gap: 3px; align-content: start; }
+.day .dd b { font-weight: 600; font-size: 14px; }
+.day .dd span { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.day .dd i { font-style: normal; font-size: 11.5px; padding: 0 6px; border-radius: 4px; justify-self: start; color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.day.weekend .dd b { color: var(--muted); }
+.day ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 14.5px; min-width: 0; }
+.day li { overflow-wrap: anywhere; }
+.day mark { background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; border-radius: 2px; }
+.dlog li { grid-template-columns: 5.6rem minmax(0,1fr); }
+@media (max-width: 600px) { .day { grid-template-columns: 1fr; gap: 4px; } .day .dd { grid-auto-flow: column; justify-content: start; gap: 8px; align-items: baseline; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow">Research projects</p>
+      <h1 id="h1">Research pipeline</h1>
+      <p class="meta" id="meta">Loading projects…</p>
+      <p class="meta filebar" id="fileBar"></p>
+    </div>
+    <div class="hright">
+      <nav class="tabs" role="tablist" aria-label="View">
+        <button type="button" role="tab" data-tab="projects" aria-selected="true">Projects</button>
+        <button type="button" role="tab" data-tab="diary" aria-selected="false">Diary</button>
+      </nav>
+      <a id="homeLink" href="#" target="_blank" rel="noopener" hidden></a>
+    </div>
+  </header>
+
+  <section id="diaryView" class="stack" hidden>
+    <div id="dConnect"></div>
+    <div class="dgrid" id="dMain">
+      <div class="card" id="dEditor"></div>
+      <div class="card" id="dSide"></div>
+    </div>
+    <div class="toolbar" id="dTools">
+      <input id="dq" class="search" type="search" placeholder="Search your diary… e.g. Kjell, proofs, PETH" aria-label="Search diary">
+      <span id="dFilter" class="filterpill"></span>
+    </div>
+    <div id="dWeeks" class="stack" style="gap:16px"></div>
+  </section>
+
+  <section id="projView" class="stack">
+  <div class="funnel-scroll"><div class="funnel" id="funnel" role="group" aria-label="Filter by stage"></div></div>
+
+  <div class="toolbar">
+    <input id="q" class="search" type="search" placeholder="Search acronym, title, coauthor, notes…" aria-label="Search projects">
+    <div class="chips" id="chips"></div>
+    <select id="sort" class="sort" aria-label="Sort projects">
+      <option value="stage">Sort: pipeline stage</option>
+      <option value="updated">Sort: least recent activity</option>
+      <option value="priority">Sort: priority</option>
+      <option value="due">Sort: deadline</option>
+      <option value="flags">Sort: urgency + importance</option>
+      <option value="interest">Sort: most interesting</option>
+      <option value="acr">Sort: acronym</option>
+    </select>
+    <button class="btn primary" id="newBtn" type="button">New project</button>
+  </div>
+
+  <div class="list" id="list">
+    <div class="empty"><strong>Loading your projects</strong><span>Each project shows its stage, progress, who has the next move, and where the code lives.</span></div>
+  </div>
+  </section>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="Project details"></aside>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const STAGES = [
+  { id: "idea", label: "Idea", pct: 5 },
+  { id: "data", label: "Data & code", pct: 20 },
+  { id: "analysis", label: "Analysis", pct: 35 },
+  { id: "drafting", label: "Drafting", pct: 50 },
+  { id: "wp", label: "Working paper", pct: 65 },
+  { id: "submitted", label: "Submitted", pct: 75 },
+  { id: "rr", label: "R&R", pct: 85 },
+  { id: "accepted", label: "Accepted", pct: 95 },
+  { id: "published", label: "Published", pct: 100 },
+];
+const STAGE = Object.fromEntries(STAGES.map((s, i) => [s.id, { ...s, i }]));
+const BALL = { me: "My move", coauthors: "Coauthors", journal: "Journal / referees", none: "Nobody" };
+const PRIO_RANK = { high: 0, normal: 1, low: 2 };
+// Personal settings live in projects.json under "settings", not in this page, so the published copy says nothing about you:
+//   groups:   [{ id, label }, …] in display order (projects with an unknown group show under "other")
+//   homeLink: { label, url } shown next to the tabs
+//   dayHint:  examples in the day-label box of the diary
+const DEFAULT_GROUPS = [{ id: "other", label: "Projects" }, { id: "published", label: "Published & forthcoming" }];
+let GROUPS = DEFAULT_GROUPS;
+let DAY_HINT = "holiday, conference, sick day…";
+function applySettings(s) {
+  s = s && typeof s === "object" ? s : {};
+  const groups = (Array.isArray(s.groups) ? s.groups : []).filter((g) => g && g.id).map((g) => ({ id: String(g.id), label: String(g.label || g.id) }));
+  GROUPS = groups.length ? groups : DEFAULT_GROUPS;
+  if (!GROUPS.some((g) => g.id === "other")) GROUPS = [...GROUPS, { id: "other", label: "Other" }];
+  const a = document.getElementById("homeLink"), l = s.homeLink;
+  if (l && /^https?:\/\//.test(l.url || "")) { a.href = l.url; a.textContent = (l.label || "Home page") + " ↗"; a.hidden = false; }
+  else a.hidden = true;
+  DAY_HINT = s.dayHint || "holiday, conference, sick day…";
+}
+// Three 0–5 ratings per project, shown after "Last activity". Click a bar to set the level; click it again (or the icon) to clear.
+const FLAGS = [
+  { id: "urgent", label: "Urgency", icon: `<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8.6" r="5.9"/><path d="M8 5.6v3l2 1.4M6.4 1.6h3.2"/></svg>` },
+  { id: "important", label: "Importance", icon: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z"/></svg>` },
+  { id: "interesting", label: "Interest", icon: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.8S2 10.3 2 6.1a3 3 0 0 1 6-1.4 3 3 0 0 1 6 1.4c0 4.2-6 7.7-6 7.7z"/></svg>` },
+];
+// Earlier versions stored on/off; "on" reads as 3.
+const levelOf = (p, id) => (typeof p[id] === "number" ? Math.max(0, Math.min(5, p[id])) : p[id] ? 3 : 0);
+function meterHtml(p, f, big = false) {
+  const lv = levelOf(p, f.id);
+  const bars = [1, 2, 3, 4, 5].map((k) => `<button type="button" class="b${k <= lv ? " f" : ""}" data-flag="${f.id}" data-lv="${k}" style="--k:${k}" aria-label="${f.label} ${k} of 5"><span></span></button>`).join("");
+  return `<span class="meter meter-${f.id}${lv ? " on" : ""}${big ? " big" : ""}" title="${f.label}: ${lv ? lv + " of 5" : "not set"}"><button type="button" class="mi" data-flag="${f.id}" data-lv="0" aria-label="Clear ${f.label.toLowerCase()}">${f.icon}</button>${bars}</span>`;
+}
+function setLevel(id, flag, k) {
+  const p = projects.get(id);
+  if (p) patch(id, { [flag]: k === levelOf(p, flag) ? 0 : k }, { now: true });
+}
+const groupOf = (p) => (GROUPS.some((g) => g.id === p.group) ? p.group : "other");
+const STALE_DAYS = 30;
+
+const projects = new Map();
+const pending = {};          // id -> true while it has edits not yet written to projects.json
+const deleted = new Set();   // ids deleted here since the last save
+let loaded = false;
+let openId = null;
+let READONLY = false;        // viewing a file in a browser that can't save
+let fileHandle = null;       // projects.json, once Chrome has edit access
+let storedHandle = null;     // remembered from an earlier visit, waiting for permission
+let fileStamp = 0;           // lastModified of projects.json as we last read or wrote it
+let saveTimer = null;
+let saving = Promise.resolve();
+let lastSaved = null;
+let fileState = "";          // "", "saving", "error"
+// Inside the Projects Overview Mac app, the app itself reads and writes projects.json, so there is nothing to pick or allow.
+// This object behaves like the Chrome file handle the rest of the page uses.
+const NATIVE = window.webkit?.messageHandlers?.pipeline || null;
+const nativeHandle = NATIVE && {
+  name: "projects.json",
+  queryPermission: async () => "granted",
+  requestPermission: async () => "granted",
+  getFile: async () => { const r = await NATIVE.postMessage({ op: "read" }); return { lastModified: r.mtime, text: async () => r.text }; },
+  createWritable: async () => {
+    let buf = "";
+    return { write: async (s) => { buf += s; }, close: async () => { await NATIVE.postMessage({ op: "write", text: buf }); } };
+  },
+};
+
+// Opened from its web address (the iPhone home-screen app), the page reads and saves projects.json through Dropbox.
+// You sign in to Dropbox once; this browser then keeps a refresh token. Saving sends the revision it last read,
+// so Dropbox refuses to overwrite a newer copy (for example one the Mac app just wrote) and the page merges and retries.
+// Which projects.json to use is chosen on each device after sign-in (the page searches Dropbox for it) and kept there,
+// so no folder name is written into this page.
+const DROPBOX = {
+  appKey: "s8j3h4vdavq5zr7",                     // App key from the Dropbox App Console › your app › Settings
+};
+// The demo copy (projects-app/demo/) loads made-up projects from demo-data.js and keeps every change in memory only.
+const DEMO = !NATIVE && typeof window.PO_DEMO === "function";
+let demoText = "", demoStamp = 1;
+const demoHandle = DEMO && {
+  name: "projects.json",
+  queryPermission: async () => "granted",
+  requestPermission: async () => "granted",
+  getFile: async () => {
+    if (!demoText) demoText = JSON.stringify(window.PO_DEMO());
+    return { lastModified: demoStamp, text: async () => demoText };
+  },
+  createWritable: async () => {
+    let buf = "";
+    return { write: async (s) => { buf += s; }, close: async () => { demoText = buf; demoStamp++; } };
+  },
+};
+const DBX = !NATIVE && !DEMO && /^https?:$/.test(location.protocol) && !!DROPBOX.appKey;
+const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+// Dropbox-API-Arg is an HTTP header, so anything outside ASCII must be escaped.
+const asciiJson = (o) => JSON.stringify(o).replace(/[\u007f-￿]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+const ls = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+  del: (k) => { try { localStorage.removeItem(k); } catch {} },
+};
+function namedError(name, message) { const e = new Error(message); e.name = name; return e; }
+const dbx = {
+  token: null, exp: 0, rev: null,
+  redirect: location.origin + location.pathname.replace(/index\.html$/, ""),   // must match the Redirect URI set for the Dropbox app
+  get connected() { return !!ls.get("dbx.refresh"); },
+  get path() { return ls.get("dbx.path") || ""; },
+  found: null,   // paths of the projects.json files in Dropbox, while choosing one (null = still searching)
+  async find() {
+    const r = await this.call("https://api.dropboxapi.com/2/files/search_v2", {
+      body: JSON.stringify({ query: "projects.json", options: { filename_only: true, max_results: 50, file_extensions: ["json"] } }),
+    });
+    const j = await r.json();
+    this.found = (j.matches || []).map((m) => m.metadata?.metadata)
+      .filter((m) => m && m[".tag"] === "file" && m.name.toLowerCase() === "projects.json").map((m) => m.path_display);
+  },
+  newVerifier: () => b64url(crypto.getRandomValues(new Uint8Array(32))),
+  challengeOf: async (v) => b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v)))),
+  async login() {
+    const verifier = this.newVerifier();
+    const challenge = await this.challengeOf(verifier);
+    const state = b64url(crypto.getRandomValues(new Uint8Array(12)));
+    ls.set("dbx.verifier", verifier); ls.set("dbx.state", state);
+    location.href = "https://www.dropbox.com/oauth2/authorize?" + new URLSearchParams({
+      client_id: DROPBOX.appKey, response_type: "code", token_access_type: "offline",
+      code_challenge: challenge, code_challenge_method: "S256", redirect_uri: this.redirect, state,
+    });
+  },
+  // Back from Dropbox's sign-in page: trade the one-time code for tokens.
+  async finishLogin() {
+    const q = new URLSearchParams(location.search);
+    if (!q.has("code") && !q.has("error")) return;
+    history.replaceState(null, "", this.redirect + location.hash);
+    if (q.has("error")) throw new Error("Dropbox sign-in was cancelled.");
+    // Sign-in started in the home-screen app but came back in Safari, which keeps separate storage on the iPhone.
+    // Show the code so it can be pasted into the app ("r." marks a code that came back by redirect).
+    if (q.get("state") !== ls.get("dbx.state") || !ls.get("dbx.verifier")) { this.strayCode = "r." + q.get("code"); return; }
+    await this.tokenRequest({ grant_type: "authorization_code", code: q.get("code"), code_verifier: ls.get("dbx.verifier"), redirect_uri: this.redirect });
+    this.forgetPending();
+  },
+  strayCode: null,
+  // The fallback: Dropbox shows a code instead of coming back to the page, and you paste it in.
+  // A plain link (not a script) opens it, so iOS doesn't block it; its verifier is kept until used, in case iOS reloads the app meanwhile.
+  codeUrl: "",
+  async prepareCodeLink() {
+    let v = ls.get("dbx.codeVerifier");
+    if (!v) { v = this.newVerifier(); ls.set("dbx.codeVerifier", v); }
+    this.codeUrl = "https://www.dropbox.com/oauth2/authorize?" + new URLSearchParams({
+      client_id: DROPBOX.appKey, response_type: "code", token_access_type: "offline",
+      code_challenge: await this.challengeOf(v), code_challenge_method: "S256",
+    });
+  },
+  async useCode(raw) {
+    let code = (raw || "").trim();
+    if (!code) throw new Error("Paste the code Dropbox showed you.");
+    const params = { grant_type: "authorization_code" };
+    if (code.startsWith("r.")) Object.assign(params, { code: code.slice(2), code_verifier: ls.get("dbx.verifier"), redirect_uri: this.redirect });
+    else Object.assign(params, { code, code_verifier: ls.get("dbx.codeVerifier") });
+    if (!params.code_verifier) throw new Error("This code belongs to an older sign-in. Tap Get a code and use the new one.");
+    try { await this.tokenRequest(params); }
+    catch (e) { throw new Error(e.name === "NotAllowedError" ? "Dropbox didn't accept that code. Codes work once and for a few minutes: tap Get a code and paste the new one." : e.message); }
+    this.forgetPending();
+  },
+  forgetPending() { ["dbx.verifier", "dbx.state", "dbx.codeVerifier"].forEach(ls.del); this.strayCode = null; },
+  async tokenRequest(params) {
+    const r = await fetch("https://api.dropboxapi.com/oauth2/token", { method: "POST", body: new URLSearchParams({ client_id: DROPBOX.appKey, ...params }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      if (j.error === "invalid_grant") { this.logout(); throw namedError("NotAllowedError", "Dropbox sign-in expired. Connect again."); }
+      throw new Error(j.error_description || j.error || "Dropbox sign-in failed (" + r.status + ")");
+    }
+    if (j.refresh_token) ls.set("dbx.refresh", j.refresh_token);
+    this.token = j.access_token;
+    this.exp = Date.now() + ((j.expires_in || 3600) - 120) * 1000;
+  },
+  async auth() {
+    if (this.token && Date.now() < this.exp) return this.token;
+    const rt = ls.get("dbx.refresh");
+    if (!rt) throw namedError("NotAllowedError", "Not connected to Dropbox.");
+    await this.tokenRequest({ grant_type: "refresh_token", refresh_token: rt });
+    return this.token;
+  },
+  async call(url, { arg, body } = {}) {
+    for (let retry = true; ; retry = false) {
+      const headers = { Authorization: "Bearer " + (await this.auth()) };
+      if (arg) { headers["Dropbox-API-Arg"] = asciiJson(arg); if (body !== undefined) headers["Content-Type"] = "application/octet-stream"; }
+      else if (body !== undefined) headers["Content-Type"] = "application/json";
+      const r = await fetch(url, { method: "POST", headers, body });
+      if (r.ok) return r;
+      if (r.status === 401 && retry) { this.token = null; continue; }
+      const text = await r.text().catch(() => "");
+      let summary = "";
+      try { summary = JSON.parse(text).error_summary || ""; } catch {}
+      if (summary.includes("not_found")) throw namedError("NotFoundError", "There's no projects.json at " + dbx.path + " in Dropbox. Choose another file.");
+      if (summary.includes("conflict")) throw namedError("ConflictError", "projects.json changed in Dropbox while saving.");
+      if (r.status === 401) { this.logout(); throw namedError("NotAllowedError", "Dropbox sign-in expired. Connect again."); }
+      throw new Error("Dropbox: " + (summary || text || r.status));
+    }
+  },
+  logout() { ls.del("dbx.refresh"); this.token = null; },
+};
+// Behaves like the Chrome file handle; lastModified is Dropbox's revision id, so the page's "changed on disk?" checks work unchanged.
+const dropboxHandle = DBX && {
+  name: "projects.json",
+  queryPermission: async () => (dbx.connected ? "granted" : "prompt"),
+  requestPermission: async () => (dbx.connected ? "granted" : "prompt"),
+  getFile: async () => {
+    const m = await (await dbx.call("https://api.dropboxapi.com/2/files/get_metadata", { body: JSON.stringify({ path: dbx.path }) })).json();
+    dbx.rev = m.rev;
+    return { lastModified: m.rev, text: async () => (await dbx.call("https://content.dropboxapi.com/2/files/download", { arg: { path: "rev:" + m.rev } })).text() };
+  },
+  createWritable: async () => {
+    let buf = "";
+    const base = dbx.rev;
+    return {
+      write: async (s) => { buf += s; },
+      close: async () => {
+        const r = await dbx.call("https://content.dropboxapi.com/2/files/upload", {
+          arg: { path: dbx.path, mode: { ".tag": "update", update: base }, strict_conflict: true, mute: true }, body: buf,
+        });
+        dbx.rev = (await r.json()).rev;
+      },
+    };
+  },
+};
+const canEditFiles = "showOpenFilePicker" in window || !!NATIVE || DBX;
+// After Dropbox sign-in: open the projects.json this device uses, or search Dropbox so you can choose one.
+async function dbxOpen() {
+  if (dbx.path) return connect(dropboxHandle);
+  dbx.found = null; renderAll();
+  try { await dbx.find(); } catch (e) { dbx.found = []; toast(e.message); }
+  renderAll();
+}
+function dbxUse(path) {
+  path = (path || "").trim();
+  if (!path) return toast("Type where projects.json is, for example /Folder/projects.json");
+  ls.set("dbx.path", path.startsWith("/") ? path : "/" + path);
+  connect(dropboxHandle);
+}
+const view = { stage: null, chip: "all", q: "", sort: "stage" };
+const diary = new Map();     // "YYYY-MM-DD" -> { d, note, text, updated }
+const pendingDays = {};      // days with edits not yet written to projects.json
+let diaryIdx = new Map();    // acr -> [{ d, line }], newest first
+let docExtra = {};           // other top-level keys of projects.json, written back untouched
+let tab = "projects";
+const dview = { date: localDay(), follow: true, q: "", tag: null, period: "week" };
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const stageColor = (id) => `var(--s-${STAGE[id] ? id : "none"})`;
+// Calendar day in local time (toISOString would give the UTC day, wrong just after midnight).
+function localDay(dt = new Date()) {
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+const today = () => localDay();
+
+function daysSince(iso) {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+function daysUntil(date) {
+  if (!date) return null;
+  return Math.round((new Date(date + "T12:00:00").getTime() - Date.now()) / 86400000);
+}
+function ago(iso) {
+  const d = daysSince(iso);
+  if (d === null) return "—";
+  if (d <= 0) return "today";
+  if (d === 1) return "yesterday";
+  if (d < 14) return d + " d ago";
+  if (d < 70) return Math.round(d / 7) + " wk ago";
+  return Math.round(d / 30) + " mo ago";
+}
+function fmtDate(date) {
+  if (!date) return "";
+  return new Date(date + "T12:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+function progressOf(p) {
+  if (typeof p.progress === "number") return p.progress;
+  return STAGE[p.stage]?.pct ?? 0;
+}
+// Last time the project was touched: its record changed or a diary line mentioned it.
+function lastActivity(p) { return [p.updated || "", diaryIdx.get(p.acr)?.[0]?.d || ""].sort().pop(); }
+function isStale(p) { const d = daysSince(lastActivity(p)); return d !== null && d > STALE_DAYS && p.stage !== "published" && p.group !== "published" && !p.paused; }
+function dueSoon(p) { const d = daysUntil(p.due); return d !== null && d <= 30; }
+
+let toastT;
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+/* ---------- filtering ---------- */
+const CHIPS = [
+  { id: "all", label: "All", test: () => true },
+  { id: "me", label: "My move", test: (p) => p.ball === "me" && !p.paused },
+  { id: "urgent", label: "Urgency 4+", test: (p) => levelOf(p, "urgent") >= 4 },
+  { id: "important", label: "Importance 4+", test: (p) => levelOf(p, "important") >= 4 },
+  { id: "interesting", label: "Interest 4+", test: (p) => levelOf(p, "interesting") >= 4 },
+  { id: "due", label: "Deadline ≤ 30 d", test: dueSoon },
+  { id: "stale", label: "Untouched 30 d+", test: isStale },
+  { id: "check", label: "Needs checking", test: (p) => !!p.needsCheck },
+  { id: "paused", label: "Paused", test: (p) => !!p.paused },
+];
+
+// Every tag in use gets its own filter chip after the fixed ones.
+function allTags() { return [...new Set([...projects.values()].flatMap((p) => p.tags || []))].sort(); }
+function chipList() {
+  return [...CHIPS, ...allTags().map((t) => ({ id: "tag:" + t, label: t, tag: true, test: (p) => (p.tags || []).includes(t) }))];
+}
+function chipById(id) { return chipList().find((c) => c.id === id) || CHIPS[0]; }
+
+function matchesQuery(p, q) {
+  if (!q) return true;
+  const hay = [p.acr, p.title, p.coauthors, p.journal, p.year, p.next, p.notes, p.codeLoc, ...(p.tags || []), ...(p.links || []).map((l) => l.label)].join(" ").toLowerCase();
+  return q.toLowerCase().split(/\s+/).every((w) => hay.includes(w));
+}
+
+function visible() {
+  const chip = chipById(view.chip);
+  let arr = [...projects.values()].filter((p) =>
+    chip.test(p) && matchesQuery(p, view.q) &&
+    (view.stage === null || (view.stage === "none" ? !STAGE[p.stage] : p.stage === view.stage)));
+  const stageIdx = (p) => (STAGE[p.stage] ? STAGE[p.stage].i : -1);
+  const by = {
+    stage: (a, b) => stageIdx(b) - stageIdx(a) || a.acr.localeCompare(b.acr),
+    updated: (a, b) => lastActivity(a).localeCompare(lastActivity(b)),
+    priority: (a, b) => (PRIO_RANK[a.priority] ?? 1) - (PRIO_RANK[b.priority] ?? 1) || stageIdx(b) - stageIdx(a),
+    due: (a, b) => (a.due || "9999").localeCompare(b.due || "9999"),
+    flags: (a, b) => (levelOf(b, "urgent") + levelOf(b, "important")) - (levelOf(a, "urgent") + levelOf(a, "important"))
+      || levelOf(b, "urgent") - levelOf(a, "urgent") || levelOf(b, "interesting") - levelOf(a, "interesting") || stageIdx(b) - stageIdx(a),
+    interest: (a, b) => levelOf(b, "interesting") - levelOf(a, "interesting") || stageIdx(b) - stageIdx(a),
+    acr: (a, b) => a.acr.localeCompare(b.acr),
+  };
+  arr.sort(by[view.sort]);
+  if (view.chip !== "paused") arr.sort((a, b) => !!a.paused - !!b.paused);
+  return arr;
+}
+
+/* ---------- rendering ---------- */
+function renderFunnel() {
+  const all = [...projects.values()];
+  const cells = STAGES.map((s) => ({ id: s.id, label: s.label, n: all.filter((p) => p.stage === s.id).length }));
+  const unset = all.filter((p) => !STAGE[p.stage]).length;
+  if (unset) cells.unshift({ id: "none", label: "Stage not set", n: unset });
+  const f = $("#funnel");
+  f.style.setProperty("--n", cells.length);
+  f.innerHTML = cells.map((c) => `
+    <button type="button" class="stage-cell${c.n ? "" : " zero"}" data-stage="${c.id}" style="--c:${stageColor(c.id)}" aria-pressed="${view.stage === c.id}">
+      <span class="n">${c.n}</span><span class="l">${esc(c.label)}</span>
+    </button>`).join("");
+}
+
+function renderChips() {
+  const all = [...projects.values()];
+  $("#chips").innerHTML = chipList().map((c) => {
+    const n = c.id === "all" ? all.length : all.filter(c.test).length;
+    if (c.id !== "all" && c.id !== view.chip && n === 0) return "";
+    return `<button type="button" class="chip" data-chip="${c.id}" aria-pressed="${view.chip === c.id}">${esc(c.label)}<span class="c">${n}</span></button>`;
+  }).join("");
+}
+
+function renderMeta() {
+  if (tab === "diary") {
+    const logged = [...diary.values()].filter((e) => linesOf(e).length);
+    const lines = logged.reduce((n, e) => n + linesOf(e).length, 0);
+    const first = logged.map((e) => e.d).sort()[0];
+    $("#meta").innerHTML = logged.length ? `<b>${logged.length}</b> days · <b>${lines}</b> lines · since ${esc(fmtDate(first))}` : loaded ? "Nothing written yet." : "Not connected to projects.json yet.";
+    return;
+  }
+  const all = [...projects.values()];
+  if (!all.length) { $("#meta").textContent = loaded ? "No projects yet." : "Not connected to projects.json yet."; return; }
+  const active = all.filter((p) => !p.paused && p.stage !== "published").length;
+  const mine = all.filter((p) => p.ball === "me" && !p.paused).length;
+  const last = all.map((p) => p.updated || "").sort().pop();
+  $("#meta").innerHTML = `<b>${all.length}</b> projects · <b>${active}</b> active · <b>${mine}</b> waiting on you · last change ${esc(ago(last))}`;
+}
+
+// Journal, year, volume/pages and a link to the published version, for papers that have a journal set.
+function pubLine(p) {
+  if (!p.journal) return "";
+  const fc = p.stage === "accepted";
+  return `<span class="publine"><span class="jn">${esc(p.journal)}</span><span class="yr${fc ? " fc" : ""}">${fc ? "forthcoming" : esc(p.year || "")}</span>${p.biblio ? `<span class="bib">${esc(p.biblio)}</span>` : ""}${p.pubUrl ? `<a href="${esc(p.pubUrl)}" target="_blank" rel="noopener">${fc ? "Journal page" : "Published version"} ↗</a>` : ""}</span>`;
+}
+function rowHtml(p) {
+  const st = STAGE[p.stage];
+  const pct = progressOf(p);
+  const dd = daysUntil(p.due);
+  const dueCls = dd === null ? "" : dd < 0 ? " over" : dd <= 14 ? " soon" : "";
+  const flags = [
+    ...(p.tags || []).map((t) => `<span class="flag tag">${esc(t)}</span>`),
+    p.needsCheck ? `<span class="flag check">Check details</span>` : "",
+    p.due ? `<span class="flag due${dueCls}">${dd < 0 ? "Overdue" : "Due"} ${esc(fmtDate(p.due))}${p.dueWhat ? " · " + esc(p.dueWhat) : ""}</span>` : "",
+  ].join("");
+  return `
+  <div class="row${p.paused ? " paused" : ""}" role="button" tabindex="0" data-id="${esc(p.acr)}" style="--c:${stageColor(p.stage)}">
+    <span class="acr">${esc(p.acr)}${p.priority === "high" ? `<span class="prio high">High</span>` : p.priority === "low" ? `<span class="prio low">Low</span>` : ""}</span>
+    <span class="tcell">
+      <span class="ptitle${p.title ? "" : " missing"}">${esc(p.title || "Title not set")}</span>
+      ${pubLine(p)}
+      ${p.coauthors ? `<span class="sub">with ${esc(p.coauthors)}</span>` : ""}
+      ${p.next ? `<span class="next"><b>Next</b>${esc(p.next)}</span>` : ""}
+      ${flags ? `<span class="flags">${flags}</span>` : ""}
+    </span>
+    <span class="scell">
+      <span class="stage-chip"><i></i>${esc(st ? st.label : "Stage not set")}${p.paused ? " · paused" : ""}</span>
+      <span class="srow"><span class="bar"><span style="width:${pct}%"></span></span><span class="pct">${pct}%</span></span>
+    </span>
+    <span class="ball${p.ball === "me" ? " me" : ""}">${esc(BALL[p.ball] || "—")}</span>
+    <span class="upd${isStale(p) ? " stale" : ""}" title="Record updated ${esc(ago(p.updated))}${diaryIdx.has(p.acr) ? " · last in diary " + esc(fmtDate(diaryIdx.get(p.acr)[0].d)) : ""}">${esc(ago(lastActivity(p)))}</span>
+    <span class="meters">${FLAGS.map((f) => meterHtml(p, f)).join("")}</span>
+  </div>`;
+}
+
+// The list is split into groups in this order; the sort applies within each group.
+// Click a group heading to fold it away; the choice is remembered on this computer.
+const folded = new Set((() => { try { return JSON.parse(localStorage.getItem("folded") || "[]"); } catch { return []; } })());
+function groupedRows(arr) {
+  return GROUPS.map((g) => {
+    let rows = arr.filter((p) => groupOf(p) === g.id);
+    if (!rows.length) return "";
+    // Published papers read best newest first, whatever the sort.
+    if (g.id === "published" && view.sort === "stage") rows = [...rows].sort((a, b) => (b.year || 0) - (a.year || 0) || a.acr.localeCompare(b.acr));
+    const shut = folded.has(g.id) && !view.q;
+    return `<button type="button" class="group-head" data-group="${g.id}" aria-expanded="${!shut}"><i aria-hidden="true">${shut ? "▸" : "▾"}</i>${esc(g.label)}<span>${rows.length}</span></button>`
+      + (shut ? "" : rows.map(rowHtml).join(""));
+  }).join("");
+}
+
+function renderList() {
+  const list = $("#list");
+  if (!fileHandle && !READONLY) {
+    list.innerHTML = connectHtml();
+    return;
+  }
+  if (!projects.size) {
+    list.innerHTML = `<div class="empty"><strong>No projects yet</strong><span>Add your first one with New project. Give it an acronym, a stage and where the code lives.</span><button class="btn primary" type="button" data-new>New project</button></div>`;
+    return;
+  }
+  const arr = visible();
+  const head = `<div class="list-head"><span>Project</span><span>Title · next step</span><span>Stage · progress</span><span>Next move</span><span>Last activity</span><span>Rating</span></div>`;
+  list.innerHTML = head + (arr.length ? groupedRows(arr) :
+    `<div class="empty"><strong>Nothing matches</strong><span>Clear the search or pick another filter.</span></div>`);
+}
+
+function connectHtml() {
+  if (NATIVE) return `<div class="empty"><strong>Can't read projects.json</strong>
+    <span>Check that Dropbox is running and projects.json is in its folder.</span>
+    <button class="btn primary" type="button" data-retry>Try again</button></div>`;
+  if (DBX && !dbx.connected && dbx.strayCode) return `<div class="empty"><strong>Finish in the Projects app</strong>
+    <span>Dropbox signed you in here in Safari, but the sign-in belongs to the Projects app on your home screen. Copy this code, open Projects from your home screen and paste it there.</span>
+    <code class="dbx-code">${esc(dbx.strayCode)}</code>
+    <button class="btn primary" type="button" data-dbx-copy>Copy code</button></div>`;
+  if (DBX && !dbx.connected) return `<div class="empty"><strong>Connect Dropbox</strong>
+    <span>Sign in to Dropbox once so this app can read and save your <b>projects.json</b>.</span>
+    <button class="btn primary" type="button" data-dbx-login>Connect Dropbox</button>
+    ${dbx.codeUrl ? `<span class="dbx-alt"><b>Didn't come back here?</b> Tap Get a code and sign in to Dropbox with your email or Google (not “open in the Dropbox app”). Copy the code Dropbox shows, come back and paste it below.</span>
+    <a class="btn" href="${esc(dbx.codeUrl)}" target="_blank" rel="noopener">Get a code</a>
+    <div class="field dbx-paste"><input type="text" placeholder="Paste the code here" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <button class="btn" type="button" data-dbx-paste>Connect with code</button>` : ""}</div>`;
+  if (DBX && !dbx.path) return `<div class="empty"><strong>Which projects.json?</strong>
+    <span>Choose your project file in Dropbox. This device remembers it.</span>
+    ${dbx.found === null ? `<span>Looking in your Dropbox…</span>`
+      : dbx.found.length ? dbx.found.map((f) => `<button class="btn" type="button" data-dbx-path="${esc(f)}">${esc(f)}</button>`).join("")
+      : `<span>No projects.json found in your Dropbox.</span>`}
+    <span class="dbx-alt">Or type where it is in Dropbox:</span>
+    <div class="field dbx-paste"><input type="text" placeholder="/Folder/projects.json" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <button class="btn" type="button" data-dbx-typed>Use this file</button></div>`;
+  if (DBX) return `<div class="empty"><strong>Can't read projects.json</strong>
+    <span>Check your connection, then try again.</span>
+    <button class="btn primary" type="button" data-retry>Try again</button>
+    <button class="btn" type="button" data-dbx-repick>Choose another file</button>
+    <button class="btn" type="button" data-dbx-login>Sign in to Dropbox again</button></div>`;
+  if (canEditFiles && storedHandle) return `<div class="empty"><strong>Open your projects</strong>
+    <span>Chrome needs your OK to edit projects.json again. Choose “Allow on every visit” to skip this next time.</span>
+    <button class="btn primary" type="button" data-reconnect>Open projects.json</button></div>`;
+  if (canEditFiles) return `<div class="empty"><strong>Connect your project file</strong>
+    <span>Choose your <b>projects.json</b>, then allow editing. You only do this once.</span>
+    <button class="btn primary" type="button" data-pick>Choose projects.json</button></div>`;
+  return `<div class="empty"><strong>This browser can't save files</strong>
+    <span>Open this page in Google Chrome to edit your projects. To look at them here, choose projects.json.</span>
+    <label class="btn">Choose projects.json<input type="file" id="viewFile" accept=".json,application/json" hidden></label></div>`;
+}
+
+// The most recent change anywhere in the data: a project record or a diary day.
+function lastEdit() {
+  let best = { t: "", what: "" };
+  for (const p of projects.values()) if ((p.updated || "") > best.t) best = { t: p.updated, what: p.acr };
+  for (const e of diary.values()) if ((e.updated || "") > best.t) best = { t: e.updated, what: "diary, " + shortDate(e.d) };
+  return best;
+}
+function whenText(iso) {
+  const dt = new Date(iso), d = localDay(dt);
+  const hm = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (d === today()) return "today " + hm;
+  if (d === addDays(today(), -1)) return "yesterday " + hm;
+  return dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + " " + hm;
+}
+function renderFileBar() {
+  const bar = $("#fileBar");
+  if (DEMO) {
+    bar.innerHTML = `<span class="dot busy"></span><span><b>Demo</b> with made-up projects. Try anything: changes stay on this screen and vanish when you reload.</span>`;
+  } else if (fileHandle) {
+    const dot = fileState === "error" ? "off" : fileState === "saving" || saveTimer ? "busy" : "ok";
+    const what = fileState === "error" ? "Last save failed" : fileState === "saving" || saveTimer ? "Saving…"
+      : lastSaved ? "Saved " + lastSaved.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "All changes saved";
+    const le = lastEdit();
+    const leText = le.t ? `Last edit ${whenText(le.t)} · ${le.what}` : "";
+    bar.innerHTML = `<span class="dot ${dot}"></span><span>${what} to <b>projects.json</b>${leText ? ` · ${esc(leText)}` : ""}</span>`;
+    if (NATIVE) NATIVE.postMessage({ op: "status", text: fileState === "error" ? "Last save failed" : saveTimer || fileState === "saving" ? "Saving…" : leText }).catch(() => {});
+  } else if (READONLY) {
+    bar.innerHTML = `<span class="dot"></span><span>Viewing only. Open this page in Chrome to edit.</span>`;
+  } else {
+    bar.innerHTML = `<span class="dot off"></span><span>Not connected to projects.json</span>`;
+  }
+}
+
+function renderAll() {
+  buildDiaryIndex();
+  renderMeta(); renderFunnel(); renderChips(); renderList(); renderDiary(); renderFileBar();
+  $("#newBtn").hidden = !fileHandle;
+}
+
+/* ---------- saving ---------- */
+function clean(p) {
+  const { id, ...rest } = p;
+  return JSON.parse(JSON.stringify(rest));
+}
+function patch(id, changes, { now = false, quiet = false } = {}) {
+  const cur = projects.get(id);
+  if (!cur || READONLY || !fileHandle) return;
+  projects.set(id, { ...cur, ...changes, updated: new Date().toISOString() });
+  pending[id] = true;
+  scheduleSave(now ? 0 : 700);
+  renderAll();
+}
+function flush() { scheduleSave(0); }
+
+/* ---------- projects.json ---------- */
+function scheduleSave(ms) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { saveTimer = null; saving = saving.then(saveFile); }, ms);
+}
+function toDoc() {
+  const list = [...projects.values()].sort((a, b) => a.acr.localeCompare(b.acr)).map(clean);
+  const days = [...diary.values()].filter((e) => (e.text || "").trim() || (e.note || "").trim())
+    .sort((a, b) => a.d.localeCompare(b.d)).map(({ d, note, text, updated }) => ({ d, note: note || "", text: text || "", updated }));
+  return { ...docExtra, format: "research-pipeline/1", savedAt: new Date().toISOString(), projects: list, diary: days };
+}
+async function readDisk(f) {
+  f ||= await fileHandle.getFile();
+  const data = JSON.parse(await f.text());
+  if (!data || !Array.isArray(data.projects)) throw new Error("projects.json doesn't contain a project list");
+  return { f, data };
+}
+// Take the file's copy of each project (and diary day) unless this page has a newer unsaved edit of it.
+function mergeFromDisk(data) {
+  const { format, savedAt, projects: list, diary: days, ...extra } = data;
+  docExtra = extra;
+  applySettings(extra.settings);
+  const disk = new Map(list.filter((p) => p && p.acr).map((p) => [p.acr, p]));
+  for (const [id, p] of disk) {
+    if (deleted.has(id)) continue;
+    const mine = projects.get(id);
+    if (!mine || !pending[id] || (p.updated || "") > (mine.updated || "")) projects.set(id, p);
+  }
+  for (const id of [...projects.keys()]) if (!disk.has(id) && !pending[id]) projects.delete(id);
+  const diskDays = new Map((Array.isArray(days) ? days : []).filter((e) => e && e.d).map((e) => [e.d, e]));
+  for (const [d, e] of diskDays) {
+    const mine = diary.get(d);
+    if (!mine || !pendingDays[d] || (e.updated || "") > (mine.updated || "")) diary.set(d, e);
+  }
+  for (const d of [...diary.keys()]) if (!diskDays.has(d) && !pendingDays[d]) diary.delete(d);
+}
+async function saveFile() {
+  if (!fileHandle) return;
+  fileState = "saving"; renderFileBar();
+  try {
+    const { f, data } = await readDisk();
+    if (f.lastModified !== fileStamp) { mergeFromDisk(data); renderAll(); }
+    const saved = Object.keys(pending);
+    const savedDays = Object.keys(pendingDays);
+    const w = await fileHandle.createWritable();
+    await w.write(JSON.stringify(toDoc(), null, 2) + "\n");
+    await w.close();
+    fileStamp = DBX ? dbx.rev : (await fileHandle.getFile()).lastModified;   // Dropbox names the revision it just saved
+    if (!saveTimer) { saved.forEach((id) => delete pending[id]); savedDays.forEach((d) => delete pendingDays[d]); }
+    deleted.clear();
+    lastSaved = new Date();
+    fileState = "";
+  } catch (e) {
+    // Dropbox refused because another device saved first: the retry re-reads, merges and saves again.
+    if (e?.name === "ConflictError") { fileState = ""; scheduleSave(300); renderFileBar(); return; }
+    fileState = "error";
+    fileError(e, "Couldn't save");
+  }
+  renderFileBar();
+}
+async function refreshFromDisk() {
+  if (!fileHandle || saveTimer || fileState === "saving") return;
+  try {
+    if ((await fileHandle.queryPermission({ mode: "readwrite" })) !== "granted") return;
+    // Compare first, so an unchanged file isn't downloaded again (it would be on every poll over Dropbox).
+    const f = await fileHandle.getFile();
+    if (f.lastModified === fileStamp) return;
+    const { data } = await readDisk(f);
+    mergeFromDisk(data);
+    fileStamp = f.lastModified;
+    renderAll();
+    toast("Loaded changes from projects.json");
+    if (openId && openId !== "__new" && !$("#drawer").contains(document.activeElement)) {
+      if (projects.has(openId)) openDrawer(openId); else closeDrawer();
+    }
+  } catch (e) { fileError(e, "Couldn't read projects.json"); }
+}
+function fileError(e, what) {
+  if (e?.name === "NotAllowedError" || e?.name === "NotFoundError") {
+    storedHandle = e.name === "NotFoundError" ? null : fileHandle;
+    fileHandle = null;
+    READONLY = false;
+    renderAll();
+    toast(DBX ? e.message : e.name === "NotFoundError" ? "projects.json was moved or renamed. Choose it again." : "Chrome needs your OK to keep editing projects.json.");
+  } else {
+    toast(what + ": " + (e?.message || "unknown error"));
+  }
+}
+function idb(op, val) {
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open("research-pipeline", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onerror = () => reject(r.error);
+    r.onsuccess = () => {
+      try {
+        const st = r.result.transaction("kv", op === "get" ? "readonly" : "readwrite").objectStore("kv");
+        const q = op === "get" ? st.get("handle") : st.put(val, "handle");
+        q.onsuccess = () => resolve(q.result);
+        q.onerror = () => reject(q.error);
+      } catch (e) { reject(e); }   // e.g. a value IndexedDB can't store; without this the caller would wait forever
+    };
+  });
+}
+async function connect(h) {
+  try {
+    let perm = await h.queryPermission({ mode: "readwrite" });
+    if (perm !== "granted") perm = await h.requestPermission({ mode: "readwrite" });
+    if (perm !== "granted") { storedHandle = h; renderAll(); toast("Editing needs your permission. Click Open projects.json to try again."); return; }
+    fileHandle = h;
+    const { f, data } = await readDisk();
+    mergeFromDisk(data);
+    fileStamp = f.lastModified;
+    READONLY = false;
+    loaded = true;
+    if (!NATIVE && !DBX && !DEMO) try { await idb("put", h); } catch {}
+    if (Object.keys(pending).length) scheduleSave(0);
+    renderAll();
+    openFromHash();
+  } catch (e) {
+    fileHandle = null;
+    if (DBX) { renderAll(); toast(e?.message || "Couldn't open projects.json"); }
+    else if (e?.name === "NotFoundError") { storedHandle = null; renderAll(); toast("projects.json was moved or renamed. Choose it again."); }
+    else toast("Couldn't open projects.json: " + (e?.message || "unknown error"));
+  }
+}
+async function pickFile() {
+  try {
+    const [h] = await window.showOpenFilePicker({ id: "pipeline", types: [{ description: "Project data", accept: { "application/json": [".json"] } }] });
+    await connect(h);
+  } catch (e) {
+    if (e?.name !== "AbortError") toast("Couldn't open the file: " + (e?.message || "unknown error"));
+  }
+}
+async function viewFile(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    applySettings(data.settings);
+    projects.clear();
+    for (const p of data.projects || []) if (p && p.acr) projects.set(p.acr, p);
+    diary.clear();
+    for (const e of data.diary || []) if (e && e.d) diary.set(e.d, e);
+    READONLY = true;
+    loaded = true;
+    renderAll();
+  } catch (e) { toast("That file isn't a project list: " + (e?.message || "")); }
+}
+function addLog(p, text) {
+  return [{ d: today(), t: text }, ...(p.log || [])].slice(0, 200);
+}
+
+/* ---------- diary ---------- */
+const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const parseDay = (s) => new Date(s + "T12:00:00");
+const addDays = (s, n) => { const t = parseDay(s); t.setDate(t.getDate() + n); return localDay(t); };
+const mondayOf = (s) => addDays(s, -((parseDay(s).getDay() + 6) % 7));
+const longDate = (s) => parseDay(s).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+const shortDate = (s) => parseDay(s).toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(s.slice(0, 4) !== today().slice(0, 4) ? { year: "numeric" } : {}) });
+const linesOf = (e) => (e?.text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const topicLabel = (id) => (id === "ADMIN" ? "admin" : id);
+function isoWeek(s) {
+  const d = parseDay(s);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const jan4 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - jan4) / 86400000 - 3 + ((jan4.getDay() + 6) % 7)) / 7);
+}
+
+// Projects are recognised by acronym or by one of their diary names (aliases), written with at least two capitals,
+// anywhere in a line. Other capitalised words that open a line (ECO401, NBS, SEA…) count as topics.
+let aliasMap = new Map(), topicSet = new Set(), colorMap = new Map(), topicLast = new Map();
+function buildDiaryIndex() {
+  aliasMap = new Map(); colorMap = new Map();
+  [...projects.keys()].sort().forEach((acr, i) => { colorMap.set(acr, `var(--p${i % 8})`); aliasMap.set(acr.toUpperCase(), acr); });
+  for (const p of projects.values()) for (const a of p.aliases || []) if (a) aliasMap.set(a.toUpperCase(), p.acr);
+  topicSet = new Set(["ADMIN"]);
+  for (const e of diary.values()) for (const l of linesOf(e)) {
+    const w = l.match(/^[A-Za-z][A-Za-z0-9_]*/)?.[0];
+    if (w && /^[A-Z][A-Z0-9_]+$/.test(w) && !aliasMap.has(w)) topicSet.add(w);
+  }
+  diaryIdx = new Map(); topicLast = new Map();
+  for (const d of [...diary.keys()].sort().reverse()) for (const l of linesOf(diary.get(d))) {
+    const t = tagsOf(l);
+    for (const acr of t.projects) { if (!diaryIdx.has(acr)) diaryIdx.set(acr, []); diaryIdx.get(acr).push({ d, line: l }); }
+    for (const id of t.topics) if (!topicLast.has(id)) topicLast.set(id, d);
+  }
+}
+function segments(line) {
+  const out = [];
+  let last = 0, first = true;
+  for (const m of line.matchAll(/[A-Za-z][A-Za-z0-9_]*/g)) {
+    const w = m[0], up = w.toUpperCase();
+    let seg = null;
+    if ((w.match(/[A-Z]/g) || []).length >= 2 && aliasMap.has(up)) seg = { kind: "p", id: aliasMap.get(up) };
+    else if (first && topicSet.has(up)) seg = { kind: "t", id: up };
+    first = false;
+    if (!seg) continue;
+    if (m.index > last) out.push({ text: line.slice(last, m.index) });
+    out.push({ text: w, ...seg });
+    last = m.index + w.length;
+  }
+  if (last < line.length) out.push({ text: line.slice(last) });
+  return out;
+}
+function tagsOf(line) {
+  const s = segments(line);
+  return { projects: [...new Set(s.filter((x) => x.kind === "p").map((x) => x.id))], topics: [...new Set(s.filter((x) => x.kind === "t").map((x) => x.id))] };
+}
+function hl(text, words) {
+  if (!words.length) return esc(text);
+  return text.split(new RegExp("(" + words.map(escRe).join("|") + ")", "i")).map((part, i) => (i % 2 ? `<mark>${esc(part)}</mark>` : esc(part))).join("");
+}
+function renderLine(line, words = []) {
+  return segments(line).map((s) =>
+    s.kind === "p" ? `<span class="ptag" style="--pc:${colorMap.get(s.id)}" title="${esc(projects.get(s.id)?.title || s.id)}">${hl(s.text, words)}</span>`
+    : s.kind === "t" ? `<span class="ttag">${hl(s.text, words)}</span>`
+    : hl(s.text, words)).join("");
+}
+function tagChip(kind, id, extra = "") {
+  return kind === "p"
+    ? `<button type="button" class="ptag" data-tagf="p:${esc(id)}" style="--pc:${colorMap.get(id)}">${esc(id)}${extra}</button>`
+    : `<button type="button" class="ttag" data-tagf="t:${esc(id)}">${esc(topicLabel(id))}${extra}</button>`;
+}
+function streak() {
+  let d = today();
+  if (!linesOf(diary.get(d)).length) d = addDays(d, -1);
+  let n = 0;
+  while (linesOf(diary.get(d)).length) { n++; d = addDays(d, -1); }
+  return n;
+}
+// Days each project / topic appears on, from `from` to today.
+function tagDays(from) {
+  const c = new Map();
+  for (const e of diary.values()) {
+    if (e.d < from || e.d > today()) continue;
+    for (const l of linesOf(e)) {
+      const t = tagsOf(l);
+      for (const [kind, ids] of [["p", t.projects], ["t", t.topics]]) for (const id of ids) {
+        const k = kind + ":" + id;
+        if (!c.has(k)) c.set(k, { kind, id, days: new Set() });
+        c.get(k).days.add(e.d);
+      }
+    }
+  }
+  return [...c.values()].map((x) => ({ ...x, n: x.days.size })).sort((a, b) => b.n - a.n || a.id.localeCompare(b.id));
+}
+
+function setDay(d, changes) {
+  if (READONLY || !fileHandle) return;
+  const cur = diary.get(d) || { d, note: "", text: "" };
+  diary.set(d, { ...cur, ...changes, d, updated: new Date().toISOString() });
+  pendingDays[d] = true;
+  buildDiaryIndex();
+  scheduleSave(700);
+  renderFileBar();
+}
+
+function renderEditor(force = false) {
+  const ed = $("#dEditor");
+  if (!force && ed.contains(document.activeElement) && document.activeElement.matches("textarea, input[type=text]")) { renderLinked(); return; }
+  const d = dview.date, t = today(), e = diary.get(d) || { text: "", note: "" };
+  const diff = Math.round((parseDay(t) - parseDay(d)) / 86400000);
+  const rel = diff === 0 ? "Today" : diff === 1 ? "Yesterday" : diff > 0 ? diff + " days ago" : "Ahead";
+  const recentP = [...projects.values()].filter((p) => !p.paused)
+    .sort((a, b) => (diaryIdx.get(b.acr)?.[0]?.d || "").localeCompare(diaryIdx.get(a.acr)?.[0]?.d || "") || a.acr.localeCompare(b.acr)).slice(0, 12);
+  const recentT = [...topicLast].sort((a, b) => b[1].localeCompare(a[1])).slice(0, 6).map(([id]) => id);
+  const notes = [...new Set([...diary.values()].map((x) => x.note).filter(Boolean))];
+  ed.innerHTML = `
+    <div class="ed-head">
+      <button class="navb" type="button" data-dnav="-1" aria-label="Previous day">‹</button>
+      <div class="when"><p class="eyebrow">${rel}</p><div class="ed-date">${esc(longDate(d))}</div></div>
+      <button class="navb" type="button" data-dnav="1" aria-label="Next day"${d >= t ? " disabled" : ""}>›</button>
+      <input type="date" id="edDay" value="${d}" max="${t}" aria-label="Pick a day">
+      ${diff ? `<button class="btn small" type="button" data-dnav="today">Today</button>` : ""}
+    </div>
+    <textarea id="edText" spellcheck="false" aria-label="Diary entry" placeholder="What did you do? One thing per line, project first:&#10;INTEFFECTS: proofs&#10;ECO401: teaching&#10;call with Kjell">${esc(e.text)}</textarea>
+    <div class="linked" id="edLinked"></div>
+    <input id="edNote" type="text" list="noteList" value="${esc(e.note)}" placeholder="Label for the day, optional: ${esc(DAY_HINT)}" aria-label="Label for the day">
+    <datalist id="noteList">${notes.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
+    <div class="quick"><span class="lbl">Add a line for</span>
+      ${recentP.map((p) => `<button type="button" class="ptag" data-ins="${esc(p.acr)}" style="--pc:${colorMap.get(p.acr)}">${esc(p.acr)}</button>`).join("")}
+      ${recentT.map((id) => `<button type="button" class="ttag" data-ins="${esc(topicLabel(id))}">${esc(topicLabel(id))}</button>`).join("")}
+    </div>`;
+  if (READONLY) ed.querySelectorAll("textarea, #edNote, [data-ins]").forEach((el) => { el.disabled = true; });
+  renderLinked();
+}
+function renderLinked() {
+  const ta = $("#edText");
+  if (!ta) return;
+  const tags = linesOf({ text: ta.value }).map(tagsOf);
+  const ps = [...new Set(tags.flatMap((t) => t.projects))], ts = [...new Set(tags.flatMap((t) => t.topics))];
+  $("#edLinked").innerHTML = ps.length || ts.length
+    ? `<span>Linked to</span>${ps.map((id) => tagChip("p", id)).join("")}${ts.map((id) => tagChip("t", id)).join("")}`
+    : `<span>Start a line with a project acronym, e.g. <b>PETH:</b>, and it gets linked to that project.</span>`;
+}
+function insertLine(word) {
+  const ta = $("#edText");
+  if (!ta || ta.disabled) return;
+  const v = ta.value.replace(/\s+$/, "");
+  ta.value = (v ? v + "\n" : "") + word + ": ";
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  ta.scrollTop = ta.scrollHeight;
+  onEditorInput(ta);
+}
+function onEditorInput(t) {
+  if (t.id === "edText") { setDay(dview.date, { text: t.value }); renderLinked(); }
+  else if (t.id === "edNote") setDay(dview.date, { note: t.value.trim() });
+  else return;
+  renderSide(); renderMeta();
+}
+
+function renderSide() {
+  const t = today(), s = streak();
+  const logged = [...diary.values()].filter((e) => linesOf(e).length);
+  const todayN = linesOf(diary.get(t)).length;
+  const weekN = logged.filter((e) => e.d >= mondayOf(t) && e.d <= t).length;
+  const cheer = todayN ? `Today has ${todayN} line${todayN > 1 ? "s" : ""}. ${s >= 7 ? "Lovely streak." : ""}`
+    : s ? `Write today's first line to make it ${s + 1} days in a row.` : "Write one line today to start a streak.";
+  const weeks = 20, start = addDays(mondayOf(t), -7 * (weeks - 1));
+  let heat = "";
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = addDays(start, i), n = linesOf(diary.get(d)).length;
+    const l = n === 0 ? 0 : n <= 2 ? 1 : n <= 4 ? 2 : n <= 6 ? 3 : 4;
+    heat += `<button type="button" data-hday="${d}" data-l="${l}" class="${d > t ? "future" : ""}${d === dview.date ? " sel" : ""}" title="${esc(shortDate(d))}: ${n} line${n === 1 ? "" : "s"}" aria-label="${esc(shortDate(d))}, ${n} lines"></button>`;
+  }
+  const from = dview.period === "week" ? mondayOf(t) : dview.period === "month" ? addDays(t, -29) : "0000";
+  const rows = tagDays(from).slice(0, 12);
+  const max = rows[0]?.n || 1;
+  const bars = rows.map((r) => `<button type="button" class="tbar" data-tagf="${r.kind}:${esc(r.id)}"${r.kind === "p" ? ` style="--pc:${colorMap.get(r.id)}"` : ""} title="${r.n} day${r.n > 1 ? "s" : ""}">
+      <span class="nm">${esc(r.kind === "p" ? r.id : topicLabel(r.id))}</span><span class="tr"><span style="width:${Math.max(6, (100 * r.n) / max)}%"></span></span><span class="ct">${r.n}</span></button>`).join("");
+  $("#dSide").innerHTML = `
+    <div class="stats">
+      <div class="stat${s >= 7 ? " hot" : ""}"><span class="n">${s}</span><span class="l">day streak</span></div>
+      <div class="stat"><span class="n">${weekN}</span><span class="l">days this week</span></div>
+      <div class="stat"><span class="n">${logged.length}</span><span class="l">days logged</span></div>
+    </div>
+    <p class="cheer">${esc(cheer)}</p>
+    <div class="heat" aria-label="Lines written per day, last ${weeks} weeks">${heat}</div>
+    <div class="shead"><span class="lbl">Days spent on</span>
+      <span class="seg">${[["week", "This week"], ["month", "30 days"], ["all", "All"]].map(([k, v]) => `<button type="button" data-period="${k}" aria-pressed="${dview.period === k}">${v}</button>`).join("")}</span></div>
+    <div class="tbars">${bars || `<p class="sub">Nothing logged in this period yet.</p>`}</div>`;
+}
+
+function renderFilter() {
+  const f = dview.tag;
+  $("#dFilter").innerHTML = f ? `Showing only ${f.kind === "p" ? `<span class="ptag" style="--pc:${colorMap.get(f.id)}">${esc(f.id)}</span>` : `<span class="ttag">${esc(topicLabel(f.id))}</span>`}
+    <button class="btn small" type="button" data-clearf>Show everything</button>
+    ${f.kind === "p" && projects.has(f.id) ? `<button class="btn small" type="button" data-openproj="${esc(f.id)}">Open project</button>` : ""}` : "";
+}
+
+function renderWeeks() {
+  const box = $("#dWeeks");
+  const words = dview.q.toLowerCase().split(/\s+/).filter(Boolean);
+  const tag = dview.tag, filtering = !!tag || words.length > 0;
+  const weeks = new Map();
+  for (const e of [...diary.values()].sort((a, b) => b.d.localeCompare(a.d))) {
+    let lines = linesOf(e);
+    if (!lines.length && !e.note) continue;
+    if (filtering) lines = lines.filter((l) => (!tag || tagsOf(l)[tag.kind === "p" ? "projects" : "topics"].includes(tag.id))
+      && words.every((w) => (l + " " + (e.note || "")).toLowerCase().includes(w)));
+    if (filtering && !lines.length) continue;
+    const wk = mondayOf(e.d);
+    if (!weeks.has(wk)) weeks.set(wk, []);
+    weeks.get(wk).push({ e, lines });
+  }
+  if (!weeks.size) {
+    box.innerHTML = `<div class="list"><div class="empty"><strong>${filtering ? "Nothing matches" : "Your diary is empty"}</strong><span>${filtering ? "Try another word, or show everything." : "Write what you did today in the box above. One line per thing is plenty."}</span></div></div>`;
+    return;
+  }
+  const thisWk = mondayOf(today());
+  box.innerHTML = [...weeks].map(([wk, ds]) => {
+    const c = new Map();
+    for (const { e, lines } of ds) for (const l of lines) {
+      const t = tagsOf(l);
+      for (const id of t.projects) c.set("p:" + id, (c.get("p:" + id) || new Set()).add(e.d));
+    }
+    const sum = [...c].map(([k, s]) => [k, s.size]).sort((a, b) => b[1] - a[1]).slice(0, 6)
+      .map(([k, n]) => tagChip("p", k.slice(2), ` <span style="opacity:.7">${n}</span>`)).join("");
+    const title = wk === thisWk ? "This week" : wk === addDays(thisWk, -7) ? "Last week" : "Week " + isoWeek(wk);
+    return `<section class="week">
+      <div class="week-head"><h3>${title}</h3><span class="wsub">${esc(shortDate(wk))} – ${esc(shortDate(addDays(wk, 6)))} · ${ds.length} day${ds.length > 1 ? "s" : ""}</span><span class="wsum">${sum}</span></div>
+      ${ds.map(({ e, lines }) => {
+        const wd = parseDay(e.d).getDay();
+        return `<article class="day${wd === 0 || wd === 6 ? " weekend" : ""}${e.d === dview.date ? " sel" : ""}" data-day="${e.d}" tabindex="0" role="button" aria-label="Edit ${esc(longDate(e.d))}">
+          <span class="dd"><b>${WD[wd]}</b><span>${esc(shortDate(e.d))}</span>${e.note ? `<i>${esc(e.note)}</i>` : ""}</span>
+          <ul>${lines.map((l) => `<li>${renderLine(l, words)}</li>`).join("")}</ul></article>`;
+      }).join("")}
+    </section>`;
+  }).join("");
+}
+
+function renderDiary() {
+  if (tab !== "diary") return;
+  const off = !fileHandle && !READONLY;
+  $("#dConnect").innerHTML = off ? `<div class="list">${connectHtml()}</div>` : "";
+  $("#dMain").hidden = $("#dTools").hidden = $("#dWeeks").hidden = off;
+  if (off) return;
+  renderEditor(); renderSide(); renderFilter(); renderWeeks();
+}
+function selectDay(d, { focus = true } = {}) {
+  dview.date = d > today() ? today() : d;
+  dview.follow = dview.date === today();
+  renderEditor(true); renderSide(); renderWeeks();
+  $("#dEditor").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (focus && !READONLY) { const ta = $("#edText"); ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+function setFilter(kind, id) {
+  dview.tag = kind ? { kind, id } : null;
+  renderFilter(); renderWeeks();
+  if (kind) $("#dTools").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function setTab(t) {
+  tab = t === "diary" ? "diary" : "projects";
+  document.querySelectorAll("[data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  $("#projView").hidden = tab !== "projects";
+  $("#diaryView").hidden = tab !== "diary";
+  $("#h1").textContent = tab === "diary" ? "Diary" : "Research pipeline";
+  document.title = tab === "diary" ? "Diary · Research" : "Research Pipeline";
+  try { localStorage.setItem("tab", tab); } catch {}
+  if (tab === "diary") history.replaceState(null, "", "#diary");
+  else if (location.hash.toLowerCase() === "#diary") history.replaceState(null, "", location.pathname);
+  renderAll();
+}
+
+/* ---------- drawer ---------- */
+function openDrawer(id) {
+  openId = id;
+  const d = $("#drawer");
+  d.innerHTML = id === "__new" ? newHtml() : drawerHtml(projects.get(id));
+  if (READONLY) {
+    d.querySelectorAll("input, textarea, select, button:not(.close):not(#copyLoc)").forEach((el) => { el.disabled = true; });
+    d.querySelectorAll(".addlink, #okCheck, #delBtn, .x").forEach((el) => { el.hidden = true; });
+    $("#l-entry", d)?.parentElement && ($("#l-entry", d).parentElement.hidden = true);
+  }
+  d.hidden = false;
+  $("#scrim").hidden = false;
+  (id === "__new" ? $("#newAcr") : $(".close", d)).focus({ preventScroll: true });
+}
+function closeDrawer() {
+  if (openId && pending[openId]) { clearTimeout(pending[openId]); flush(openId); }
+  openId = null;
+  $("#drawer").hidden = true;
+  $("#scrim").hidden = true;
+}
+
+function newHtml() {
+  return `
+  <div class="dhead"><div><p class="eyebrow">New project</p><div class="dacr">Add a project</div></div><button class="close" type="button" aria-label="Close">×</button></div>
+  <div class="field"><label for="newAcr">Acronym</label><input id="newAcr" type="text" placeholder="e.g. MOTHERS" autocomplete="off"></div>
+  <div class="field"><label for="newTitle">Working title</label><textarea id="newTitle" class="title-in" rows="2"></textarea></div>
+  <div><button class="btn primary" type="button" id="createBtn">Create project</button></div>
+  <p class="sub" id="newErr"></p>`;
+}
+
+function drawerHtml(p) {
+  const pct = progressOf(p);
+  const stages = STAGES.map((s) => `<button type="button" data-setstage="${s.id}" style="--c:${stageColor(s.id)}" aria-pressed="${p.stage === s.id}"><i></i>${esc(s.label)}</button>`).join("");
+  const links = (p.links || []).map((l, i) => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label || l.url)}</a><button class="x" type="button" data-rmlink="${i}" aria-label="Remove link">×</button></li>`).join("");
+  const log = (p.log || []).map((e) => `<li><time>${esc(e.d)}</time><span>${esc(e.t)}</span></li>`).join("");
+  const dl = diaryIdx.get(p.acr) || [];
+  const dDays = new Set(dl.map((x) => x.d)).size;
+  const dlog = dl.slice(0, 40).map((x) => `<li><time>${esc(shortDate(x.d))}</time><span>${renderLine(x.line)}</span></li>`).join("");
+  return `
+  <div class="dhead">
+    <div><p class="eyebrow">Project</p><div class="dacr">${esc(p.acr)}</div></div>
+    <button class="close" type="button" aria-label="Close">×</button>
+  </div>
+  ${p.needsCheck ? `<div class="banner"><span><b>Check this.</b> ${esc(p.checkNote || "Some details were filled in automatically.")}</span><span><button class="btn small" type="button" id="okCheck">Details are right</button></span></div>` : ""}
+  <div class="field"><label for="f-title">Title</label><textarea id="f-title" class="title-in" rows="2" data-f="title">${esc(p.title)}</textarea></div>
+  <div class="field"><label for="f-coauthors">Coauthors</label><input id="f-coauthors" type="text" data-f="coauthors" value="${esc(p.coauthors)}"></div>
+  ${p.journal || p.stage === "accepted" || p.stage === "published" ? `
+  <div class="grid2">
+    <div class="field"><label for="f-journal">Journal</label><input id="f-journal" type="text" data-f="journal" value="${esc(p.journal)}"></div>
+    <div class="field"><label for="f-year">Year</label><input id="f-year" type="text" inputmode="numeric" value="${esc(p.year || "")}" placeholder="e.g. 2024"></div>
+  </div>
+  <div class="grid2">
+    <div class="field"><label for="f-biblio">Volume (issue), pages</label><input id="f-biblio" type="text" data-f="biblio" value="${esc(p.biblio)}" placeholder="e.g. 42 (3), 958–969"></div>
+    <div class="field"><label for="f-pubUrl">Published version${p.pubUrl ? ` · <a href="${esc(p.pubUrl)}" target="_blank" rel="noopener">open ↗</a>` : ""}</label><input id="f-pubUrl" type="url" data-f="pubUrl" value="${esc(p.pubUrl)}" placeholder="https://doi.org/…"></div>
+  </div>` : ""}
+  <div class="field"><label for="f-group">Group</label><select id="f-group" data-f="group">${GROUPS.map((g) => `<option value="${g.id}"${groupOf(p) === g.id ? " selected" : ""}>${esc(g.label)}</option>`).join("")}</select></div>
+  <div class="field"><label for="f-tags">Tags</label><input id="f-tags" type="text" value="${esc((p.tags || []).join(", "))}" placeholder="e.g. MUNI project — separate tags with commas"></div>
+  <div class="field"><span class="lbl">Stage</span><div class="stagepick">${stages}</div></div>
+  <div class="field"><label for="f-progress">Progress</label><div class="prog"><input id="f-progress" type="range" min="0" max="100" step="5" value="${pct}"><output id="o-progress">${pct}%</output></div></div>
+  <div class="grid2">
+    <div class="field"><label for="f-ball">Next move is with</label><select id="f-ball" data-f="ball">${Object.entries(BALL).map(([k, v]) => `<option value="${k}"${p.ball === k ? " selected" : ""}>${v}</option>`).join("")}</select></div>
+    <div class="field"><label for="f-priority">Priority</label><select id="f-priority" data-f="priority">${["high", "normal", "low"].map((k) => `<option value="${k}"${(p.priority || "normal") === k ? " selected" : ""}>${k[0].toUpperCase() + k.slice(1)}</option>`).join("")}</select></div>
+  </div>
+  <div class="field"><span class="lbl">Rating</span><div class="mrows">${FLAGS.map((f) => { const lv = levelOf(p, f.id); return `<div class="mrow"><span>${f.label}</span>${meterHtml(p, f, true)}<output>${lv ? lv + " / 5" : "not set"}</output></div>`; }).join("")}</div></div>
+  <div class="field"><label for="f-next">Next step</label><textarea id="f-next" rows="2" data-f="next">${esc(p.next)}</textarea></div>
+  <div class="grid2">
+    <div class="field"><label for="f-due">Deadline</label><input id="f-due" type="date" data-f="due" value="${esc(p.due)}"></div>
+    <div class="field"><label for="f-dueWhat">Deadline for</label><input id="f-dueWhat" type="text" data-f="dueWhat" value="${esc(p.dueWhat)}" placeholder="e.g. resubmission"></div>
+  </div>
+  <div class="field"><label for="f-codeLoc">Where the code &amp; files are</label><div class="inline"><input id="f-codeLoc" type="text" data-f="codeLoc" value="${esc(p.codeLoc)}" placeholder="Dropbox folder, GitHub repo, Overleaf…"><button class="btn small" type="button" id="copyLoc">Copy</button></div></div>
+  <div class="field"><span class="lbl">Links</span><ul class="links">${links || `<li class="sub">No links yet.</li>`}</ul>
+    <div class="addlink"><input id="l-label" type="text" placeholder="Label" aria-label="Link label"><input id="l-url" type="url" placeholder="https://…" aria-label="Link address"><button class="btn small" type="button" id="addLink">Add</button></div></div>
+  <div class="field"><label for="f-notes">Notes</label><textarea id="f-notes" rows="4" data-f="notes">${esc(p.notes)}</textarea></div>
+  <label class="checkbox"><input type="checkbox" id="f-paused"${p.paused ? " checked" : ""}> Paused (on hold)</label>
+  <div class="field"><label for="f-aliases">Other names in the diary</label><input id="f-aliases" type="text" value="${esc((p.aliases || []).join(", "))}" placeholder="e.g. NOR — separate with commas"></div>
+  <div class="field"><span class="lbl">In your diary${dDays ? ` · ${dDays} day${dDays > 1 ? "s" : ""}` : ""}</span>
+    ${dl.length ? `<ul class="log dlog">${dlog}</ul><div><button class="btn small" type="button" data-diaryfor="${esc(p.acr)}">Show all in the diary</button></div>` : `<p class="sub">No diary lines mention ${esc(p.acr)} yet.</p>`}</div>
+  <div class="field"><label for="l-entry">Activity log</label>
+    <div class="inline"><input id="l-entry" type="text" placeholder="What happened? e.g. sent draft to Martin"><button class="btn small" type="button" id="addEntry">Add</button></div>
+    <ul class="log">${log}</ul></div>
+  <div class="dfoot"><span>Updated ${esc(ago(p.updated))}</span><button class="btn small danger" type="button" id="delBtn">Delete project</button></div>`;
+}
+
+function wireDrawer() {
+  const d = $("#drawer");
+  d.addEventListener("click", (e) => {
+    const t = e.target.closest("button");
+    if (!t) return;
+    if (t.classList.contains("close")) return closeDrawer();
+    if (t.id === "createBtn") return createProject();
+    if (t.dataset.flag && openId && openId !== "__new") { setLevel(openId, t.dataset.flag, Number(t.dataset.lv)); return openDrawer(openId); }
+    if (t.dataset.diaryfor) { const id = t.dataset.diaryfor; closeDrawer(); setTab("diary"); return setFilter("p", id); }
+    const p = projects.get(openId);
+    if (!p) return;
+    if (t.dataset.setstage) {
+      const s = t.dataset.setstage;
+      if (s === p.stage) return;
+      const changes = { stage: s, log: addLog(p, "Stage → " + STAGE[s].label) };
+      const oldDefault = STAGE[p.stage]?.pct;
+      if (typeof p.progress !== "number" || p.progress === oldDefault || p.progress < STAGE[s].pct) changes.progress = STAGE[s].pct;
+      patch(openId, changes, { now: true });
+      openDrawer(openId);
+    } else if (t.id === "okCheck") {
+      patch(openId, { needsCheck: false, checkNote: "" }, { now: true });
+      openDrawer(openId);
+    } else if (t.id === "copyLoc") {
+      const inp = $("#f-codeLoc");
+      navigator.clipboard?.writeText(inp.value).then(() => toast("Copied"), () => { inp.select(); toast("Press ⌘C to copy"); })
+        ?? (inp.select(), toast("Press ⌘C to copy"));
+    } else if (t.id === "addLink") {
+      const url = $("#l-url").value.trim();
+      const label = $("#l-label").value.trim();
+      if (!/^https?:\/\//i.test(url)) return toast("Links need to start with https://");
+      patch(openId, { links: [...(p.links || []), { label: label || url, url }] }, { now: true });
+      openDrawer(openId);
+    } else if (t.dataset.rmlink) {
+      const links = [...(p.links || [])];
+      links.splice(Number(t.dataset.rmlink), 1);
+      patch(openId, { links }, { now: true });
+      openDrawer(openId);
+    } else if (t.id === "addEntry") {
+      addEntry();
+    } else if (t.id === "delBtn") {
+      if (!t.classList.contains("armed")) {
+        t.classList.add("armed");
+        t.textContent = "Click again to delete";
+        setTimeout(() => { if (t.isConnected) { t.classList.remove("armed"); t.textContent = "Delete project"; } }, 4000);
+        return;
+      }
+      const id = openId;
+      delete pending[id];
+      deleted.add(id);
+      projects.delete(id);
+      closeDrawer();
+      scheduleSave(0);
+      renderAll();
+      toast("Deleted " + id);
+    }
+  });
+  d.addEventListener("input", (e) => {
+    const t = e.target;
+    if (!openId || openId === "__new") return;
+    if (t.dataset.f) patch(openId, { [t.dataset.f]: t.value });
+    else if (t.id === "f-tags") patch(openId, { tags: [...new Set(t.value.split(",").map((s) => s.trim()).filter(Boolean))] });
+    else if (t.id === "f-year") patch(openId, { year: /^\d{4}$/.test(t.value.trim()) ? Number(t.value.trim()) : t.value.trim() });
+    else if (t.id === "f-aliases") patch(openId, { aliases: [...new Set(t.value.split(",").map((s) => s.trim()).filter(Boolean))] });
+    else if (t.id === "f-progress") { $("#o-progress").textContent = t.value + "%"; patch(openId, { progress: Number(t.value) }); }
+  });
+  d.addEventListener("change", (e) => {
+    if (e.target.id === "f-paused") {
+      const p = projects.get(openId);
+      const paused = e.target.checked;
+      patch(openId, { paused, log: addLog(p, paused ? "Paused" : "Resumed") }, { now: true });
+    }
+  });
+  d.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.id === "l-entry") addEntry();
+    if (e.key === "Enter" && e.target.id === "newAcr") createProject();
+  });
+}
+
+function addEntry() {
+  const inp = $("#l-entry");
+  const text = inp.value.trim();
+  if (!text) return;
+  patch(openId, { log: addLog(projects.get(openId), text) }, { now: true });
+  openDrawer(openId);
+  $("#l-entry").focus();
+}
+
+function createProject() {
+  const acr = $("#newAcr").value.trim().toUpperCase().replace(/\s+/g, "-");
+  const err = $("#newErr");
+  if (!/^[A-Z0-9][A-Z0-9_-]{0,40}$/.test(acr)) { err.textContent = "Use letters, digits, - or _ for the acronym."; return; }
+  if (projects.has(acr)) { err.textContent = acr + " already exists."; return; }
+  if (!fileHandle) { err.textContent = "Connect projects.json first."; return; }
+  const p = { acr, title: $("#newTitle").value.trim(), coauthors: "", group: "other", stage: "idea", progress: 5, ball: "me", priority: "normal",
+    next: "", due: "", dueWhat: "", codeLoc: "", links: [], notes: "", paused: false, needsCheck: false, checkNote: "",
+    log: [{ d: today(), t: "Project created" }], updated: new Date().toISOString() };
+  projects.set(acr, p);
+  deleted.delete(acr);
+  pending[acr] = true;
+  scheduleSave(0);
+  renderAll();
+  openDrawer(acr);
+}
+
+/* ---------- events ---------- */
+$("#funnel").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-stage]");
+  if (!b) return;
+  view.stage = view.stage === b.dataset.stage ? null : b.dataset.stage;
+  renderFunnel(); renderList();
+});
+$("#chips").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-chip]");
+  if (!b) return;
+  view.chip = b.dataset.chip;
+  renderChips(); renderList();
+});
+$("#q").addEventListener("input", (e) => { view.q = e.target.value.trim(); renderList(); });
+$("#sort").addEventListener("change", (e) => { view.sort = e.target.value; renderList(); try { localStorage.setItem("sort", view.sort); } catch {} });
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-pick]")) pickFile();
+  else if (e.target.closest("[data-reconnect]") && storedHandle) connect(storedHandle);
+  else if (e.target.closest("[data-retry]") && (NATIVE || DBX)) connect(NATIVE ? nativeHandle : dropboxHandle);
+  else if (e.target.closest("[data-dbx-login]") && DBX) dbx.login().catch((err) => toast("Couldn't start Dropbox sign-in: " + err.message));
+  else if (e.target.closest("[data-dbx-paste]") && DBX) dbx.useCode(e.target.closest(".empty").querySelector("input")?.value).then(dbxOpen, (err) => toast(err.message));
+  else if (e.target.closest("[data-dbx-path]") && DBX) dbxUse(e.target.closest("[data-dbx-path]").dataset.dbxPath);
+  else if (e.target.closest("[data-dbx-typed]") && DBX) dbxUse(e.target.closest(".empty").querySelector("input")?.value);
+  else if (e.target.closest("[data-dbx-repick]") && DBX) { ls.del("dbx.path"); dbxOpen(); }
+  else if (e.target.closest("[data-dbx-copy]") && dbx.strayCode) navigator.clipboard.writeText(dbx.strayCode).then(() => toast("Code copied. Now open Projects from your home screen."), () => toast("Select the code and copy it."));
+});
+document.addEventListener("change", (e) => { if (e.target.id === "viewFile" && e.target.files[0]) viewFile(e.target.files[0]); });
+window.addEventListener("focus", refreshFromDisk);
+// On the iPhone an app can be suspended soon after you switch away, so save straight away rather than after the usual pause.
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshFromDisk(); else if (saveTimer) window.nativeFlush(); });
+setInterval(() => { if (!document.hidden) refreshFromDisk(); }, 15000);
+window.addEventListener("beforeunload", (e) => { if (saveTimer || fileState === "saving") e.preventDefault(); });
+$("#list").addEventListener("click", (e) => {
+  if (e.target.closest("a")) return;   // links in a row open in the browser, not the project panel
+  if (e.target.closest("[data-new]")) return openDrawer("__new");
+  const g = e.target.closest("[data-group]");
+  if (g) {
+    folded.has(g.dataset.group) ? folded.delete(g.dataset.group) : folded.add(g.dataset.group);
+    try { localStorage.setItem("folded", JSON.stringify([...folded])); } catch {}
+    return renderList();
+  }
+  const f = e.target.closest("[data-flag]");
+  if (f) return setLevel(f.closest(".row").dataset.id, f.dataset.flag, Number(f.dataset.lv));
+  const r = e.target.closest(".row");
+  if (r) openDrawer(r.dataset.id);
+});
+$("#list").addEventListener("keydown", (e) => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches(".row")) { e.preventDefault(); openDrawer(e.target.dataset.id); }
+});
+$("#newBtn").addEventListener("click", () => openDrawer("__new"));
+$("#scrim").addEventListener("click", closeDrawer);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openId) closeDrawer(); });
+wireDrawer();
+try { const s = localStorage.getItem("sort"); if (s) { view.sort = s; $("#sort").value = s; } } catch {}
+
+document.querySelector(".tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) setTab(b.dataset.tab); });
+$("#dEditor").addEventListener("input", (e) => onEditorInput(e.target));
+$("#dEditor").addEventListener("change", (e) => { if (e.target.id === "edDay" && e.target.value) selectDay(e.target.value, { focus: false }); });
+$("#dEditor").addEventListener("click", (e) => {
+  const nav = e.target.closest("[data-dnav]");
+  if (nav) return selectDay(nav.dataset.dnav === "today" ? today() : addDays(dview.date, Number(nav.dataset.dnav)), { focus: false });
+  const ins = e.target.closest("[data-ins]");
+  if (ins) return insertLine(ins.dataset.ins);
+  const tf = e.target.closest("[data-tagf]");
+  if (tf) setFilter(...tf.dataset.tagf.split(/:(.*)/s));
+});
+// The diary list redraws once you leave the editor, so typing never loses focus.
+$("#dEditor").addEventListener("focusout", () => setTimeout(() => {
+  if (!$("#dEditor").contains(document.activeElement)) { renderWeeks(); flush(); }
+}, 0));
+$("#dEditor").addEventListener("keydown", (e) => {
+  if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { e.preventDefault(); selectDay(addDays(dview.date, e.key === "ArrowLeft" ? -1 : 1)); }
+});
+$("#dSide").addEventListener("click", (e) => {
+  const h = e.target.closest("[data-hday]");
+  if (h) return selectDay(h.dataset.hday);
+  const p = e.target.closest("[data-period]");
+  if (p) { dview.period = p.dataset.period; try { localStorage.setItem("period", dview.period); } catch {} return renderSide(); }
+  const tf = e.target.closest("[data-tagf]");
+  if (tf) setFilter(...tf.dataset.tagf.split(/:(.*)/s));
+});
+$("#dWeeks").addEventListener("click", (e) => {
+  const tf = e.target.closest("[data-tagf]");
+  if (tf) return setFilter(...tf.dataset.tagf.split(/:(.*)/s));
+  const d = e.target.closest("[data-day]");
+  if (d && !getSelection().toString()) selectDay(d.dataset.day);
+});
+$("#dWeeks").addEventListener("keydown", (e) => { const d = e.target.closest("[data-day]"); if (d && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); selectDay(d.dataset.day); } });
+$("#dq").addEventListener("input", (e) => { dview.q = e.target.value.trim(); renderWeeks(); });
+$("#dFilter").addEventListener("click", (e) => {
+  if (e.target.closest("[data-clearf]")) setFilter(null);
+  const o = e.target.closest("[data-openproj]");
+  if (o) openDrawer(o.dataset.openproj);
+});
+// Keep "today" current if the window stays open past midnight.
+setInterval(() => {
+  if (dview.follow && dview.date !== today() && !$("#dEditor").contains(document.activeElement)) { dview.date = today(); renderDiary(); }
+  renderFileBar();
+}, 60000);
+try { const p = localStorage.getItem("period"); if (p) dview.period = p; } catch {}
+
+/* ---------- start ---------- */
+function openFromHash() {
+  const h = decodeURIComponent(location.hash.slice(1)).toUpperCase();
+  if (h === "DIARY") setTab("diary");
+  else if (h && projects.has(h)) openDrawer(h);
+}
+try { setTab(location.hash.toLowerCase() === "#diary" ? "diary" : localStorage.getItem("tab") || "projects"); } catch { setTab("projects"); }
+
+// Menu commands and quitting, called by the Mac app.
+window.appCommand = (cmd) => {
+  if (cmd === "projects" || cmd === "diary") setTab(cmd);
+  else if (cmd === "new") { setTab("projects"); if (fileHandle) openDrawer("__new"); }
+  else if (cmd === "today") { closeDrawer(); setTab("diary"); selectDay(today()); }
+  else if (cmd === "find") { const i = tab === "diary" ? $("#dq") : $("#q"); i.focus(); i.select(); }
+};
+window.nativeFlush = async () => {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; saving = saving.then(saveFile); }
+  await saving;
+};
+
+(async () => {
+  if (NATIVE) { await connect(nativeHandle); return; }
+  if (DEMO) { await connect(demoHandle); return; }
+  if (DBX) {
+    try { await dbx.finishLogin(); } catch (e) { toast(e.message); }
+    if (dbx.connected) await dbxOpen();
+    else { try { await dbx.prepareCodeLink(); } catch {} renderAll(); }
+    return;
+  }
+  if (canEditFiles) {
+    try { storedHandle = (await idb("get")) || null; } catch { storedHandle = null; }
+    if (storedHandle) {
+      try {
+        if ((await storedHandle.queryPermission({ mode: "readwrite" })) === "granted") { await connect(storedHandle); return; }
+      } catch {}
+    }
+  }
+  renderAll();
+})();
+</script>
+</body>
+</html>
