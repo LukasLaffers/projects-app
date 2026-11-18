@@ -489,6 +489,16 @@ const dbx = {
   redirect: location.origin + location.pathname.replace(/index\.html$/, ""),   // must match the Redirect URI set for the Dropbox app
   get connected() { return !!ls.get("dbx.refresh"); },
   get path() { return ls.get("dbx.path") || ""; },
+  NEW_PATH: "/Projects Overview/projects.json",   // where a first-time user's file is created
+  // First time: make an empty projects.json (refuses to replace one that is already there).
+  async create(path) {
+    const doc = { format: "research-pipeline/1", savedAt: new Date().toISOString(), settings: { groups: DEFAULT_GROUPS }, projects: [], diary: [] };
+    try {
+      await this.call("https://content.dropboxapi.com/2/files/upload", { arg: { path, mode: "add", autorename: false, mute: true }, body: JSON.stringify(doc, null, 2) + "\n" });
+    } catch (e) {
+      throw e.name === "ConflictError" ? new Error("There's already a projects.json at " + path + ". Choose it above instead.") : e;
+    }
+  },
   found: null,   // paths of the projects.json files in Dropbox, while choosing one (null = still searching)
   async find() {
     const r = await this.call("https://api.dropboxapi.com/2/files/search_v2", {
@@ -850,6 +860,8 @@ function connectHtml() {
     ${dbx.found === null ? `<span>Looking in your Dropbox…</span>`
       : dbx.found.length ? dbx.found.map((f) => `<button class="btn" type="button" data-dbx-path="${esc(f)}">${esc(f)}</button>`).join("")
       : `<span>No projects.json found in your Dropbox.</span>`}
+    ${dbx.found?.length ? "" : `<span>New here? Start with an empty one, saved in Dropbox as <b>${esc(dbx.NEW_PATH)}</b>.</span>
+    <button class="btn primary" type="button" data-dbx-new>Start a new projects.json</button>`}
     <span class="dbx-alt">Or type where it is in Dropbox:</span>
     <div class="field dbx-paste"><input type="text" placeholder="/Folder/projects.json" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
     <button class="btn" type="button" data-dbx-typed>Use this file</button></div>`;
@@ -886,7 +898,8 @@ function whenText(iso) {
 function renderFileBar() {
   const bar = $("#fileBar");
   if (DEMO) {
-    bar.innerHTML = `<span class="dot busy"></span><span><b>Demo</b> with made-up projects. Try anything: changes stay on this screen and vanish when you reload.</span>`;
+    const help = /^https:\/\//.test(window.PO_DEMO_HELP || "") ? ` <a href="${esc(window.PO_DEMO_HELP)}" target="_blank" rel="noopener">Get your own copy ↗</a>` : "";
+    bar.innerHTML = `<span class="dot busy"></span><span><b>Demo</b> with made-up projects. Try anything: changes stay on this screen and vanish when you reload.${help}</span>`;
   } else if (fileHandle) {
     const dot = fileState === "error" ? "off" : fileState === "saving" || saveTimer ? "busy" : "ok";
     const what = fileState === "error" ? "Last save failed" : fileState === "saving" || saveTimer ? "Saving…"
@@ -1558,6 +1571,7 @@ document.addEventListener("click", (e) => {
   else if (e.target.closest("[data-dbx-path]") && DBX) dbxUse(e.target.closest("[data-dbx-path]").dataset.dbxPath);
   else if (e.target.closest("[data-dbx-typed]") && DBX) dbxUse(e.target.closest(".empty").querySelector("input")?.value);
   else if (e.target.closest("[data-dbx-repick]") && DBX) { ls.del("dbx.path"); dbxOpen(); }
+  else if (e.target.closest("[data-dbx-new]") && DBX) dbx.create(dbx.NEW_PATH).then(() => dbxUse(dbx.NEW_PATH), (err) => toast(err.message));
   else if (e.target.closest("[data-dbx-copy]") && dbx.strayCode) navigator.clipboard.writeText(dbx.strayCode).then(() => toast("Code copied. Now open Projects from your home screen."), () => toast("Select the code and copy it."));
 });
 document.addEventListener("change", (e) => { if (e.target.id === "viewFile" && e.target.files[0]) viewFile(e.target.files[0]); });

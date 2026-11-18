@@ -1,6 +1,8 @@
 // Made-up projects and diary for the public demo (projects-app/demo/). Nothing here is real,
 // and the topics are deliberately spread across many fields.
 // Dates are set relative to today, so the demo always looks current.
+// Where the demo points people who want their own copy.
+window.PO_DEMO_HELP = "https://github.com/LukasLaffers/projects-app#get-your-own";
 window.PO_DEMO = () => {
   const day = (n) => { const t = new Date(); t.setDate(t.getDate() + n); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`; };
   const at = (n, h = 10) => { const t = new Date(); t.setDate(t.getDate() + n); t.setHours(h, 15, 0, 0); return t.toISOString(); };
@@ -70,6 +72,6 @@ window.PO_DEMO = () => {
     { id: "collab", label: "Collaborations" },
     { id: "other", label: "Side projects" },
     { id: "published", label: "Published & forthcoming" },
-  ] };
+  ], homeLink: { label: "GitHub", url: "https://github.com/LukasLaffers/projects-app" } };
   return { format: "research-pipeline/1", savedAt: new Date().toISOString(), settings, projects, diary };
 };
